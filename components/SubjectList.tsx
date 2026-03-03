@@ -1,19 +1,24 @@
 import React, { useState } from 'react';
-import { Subject } from '../types';
+import { Subject, Language } from '../types';
 import { Button } from './Button';
-import { Search, Plus, User, Activity, CheckCircle, Clock, ChevronRight, X } from 'lucide-react';
+import { Search, Plus, User, Activity, CheckCircle, Clock, ChevronRight, X, Trash2 } from 'lucide-react';
+import { t } from '../i18n';
 
 interface Props {
   subjects: Subject[];
   onSelect: (id: string) => void;
   onAdd: (name: string, group: 'CONTROL' | 'AUDIOVITALITY') => void;
+  onDelete: (id: string) => void;
+  onLoadExampleData: () => void;
+  language: Language;
 }
 
-export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onAdd }) => {
+export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onAdd, onDelete, onLoadExampleData, language }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newGroup, setNewGroup] = useState<'CONTROL' | 'AUDIOVITALITY'>('AUDIOVITALITY');
+  const [subjectToDelete, setSubjectToDelete] = useState<Subject | null>(null);
 
   const filtered = subjects.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -39,6 +44,25 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onAdd }) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       
+      {/* Delete Confirmation Modal */}
+      {subjectToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white p-6 rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-medical-text mb-2">Supprimer le sujet</h3>
+            <p className="text-gray-500 mb-6">Êtes-vous sûr de vouloir supprimer définitivement le sujet {subjectToDelete.code} ({subjectToDelete.name}) ? Cette action est irréversible.</p>
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setSubjectToDelete(null)}>Annuler</Button>
+              <Button variant="primary" className="bg-red-500 hover:bg-red-600 border-none text-white shadow-lg shadow-red-500/20" onClick={() => {
+                onDelete(subjectToDelete.id);
+                setSubjectToDelete(null);
+              }}>
+                Supprimer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hero Header */}
       <div className="flex flex-col md:flex-row justify-between items-end gap-6 pb-2 border-b border-gray-100/50">
         <div>
@@ -47,7 +71,7 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onAdd }) => {
         </div>
         {!isAdding && (
           <Button onClick={() => setIsAdding(true)} variant="bronze" className="shadow-lg shadow-yellow-900/10">
-            <Plus className="w-5 h-5 mr-2" /> Nouveau Sujet
+            <Plus className="w-5 h-5 mr-2" /> {t('newSubject', language)}
           </Button>
         )}
       </div>
@@ -105,7 +129,7 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onAdd }) => {
          </div>
          <input 
            type="text" 
-           placeholder="Rechercher par nom, ID..." 
+           placeholder={t('searchPlaceholder', language)} 
            className="block w-full pl-14 pr-6 py-4 bg-white text-lg text-medical-text placeholder-gray-400 focus:ring-2 focus:ring-medical-bronze/30 focus:border-medical-bronze/30 border border-transparent rounded-[2rem] shadow-sm hover:shadow-md transition-all outline-none"
            value={searchTerm}
            onChange={(e) => setSearchTerm(e.target.value)}
@@ -115,11 +139,10 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onAdd }) => {
       {/* List */}
       <div className="grid gap-5">
         {filtered.map(subject => (
-          <button 
+          <div
             key={subject.id} 
-            type="button"
             onClick={() => onSelect(subject.id)}
-            className="w-full text-left bg-white p-5 md:p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-gray-100/50 flex flex-col md:flex-row items-center justify-between gap-4 group relative overflow-hidden focus:outline-none focus:ring-4 focus:ring-medical-bronze/10"
+            className="w-full text-left bg-white p-5 md:p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-gray-100/50 flex flex-col md:flex-row items-center justify-between gap-4 group relative overflow-hidden"
           >
             {/* Left Color Indicator */}
             <div className={`absolute left-0 top-0 bottom-0 w-2 ${subject.group === 'AUDIOVITALITY' ? 'bg-medical-bronze' : 'bg-medical-blue'}`} />
@@ -140,13 +163,30 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onAdd }) => {
                </div>
             </div>
             
-            <div className="flex items-center justify-between w-full md:w-auto gap-6 pl-3 md:pl-0">
+            <div className="flex items-center justify-between w-full md:w-auto gap-4 pl-3 md:pl-0">
                {getStatusBadge(subject)}
-               <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-medical-bronze group-hover:text-white transition-colors">
-                 <ChevronRight className="w-5 h-5" />
+               
+               <div className="flex items-center gap-2">
+                 {/* Delete Button */}
+                 <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSubjectToDelete(subject);
+                    }}
+                    className="w-10 h-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:bg-red-50 hover:border-red-100 hover:text-red-500 transition-all shadow-sm z-30 relative"
+                    title="Supprimer définitivement"
+                 >
+                    <Trash2 className="w-4 h-4 pointer-events-none" />
+                 </button>
+
+                 <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-medical-bronze group-hover:text-white transition-colors">
+                   <ChevronRight className="w-5 h-5" />
+                 </div>
                </div>
             </div>
-          </button>
+          </div>
         ))}
         
         {filtered.length === 0 && (
@@ -154,8 +194,11 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onAdd }) => {
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
               <Search className="w-6 h-6 text-gray-300" />
             </div>
-            <p className="text-lg">Aucun sujet trouvé.</p>
-            <p className="text-sm">Modifiez votre recherche ou ajoutez un nouveau participant.</p>
+            <p className="text-lg">{t('noSubjects', language)}</p>
+            <p className="text-sm mb-6">{t('startByAdding', language)}</p>
+            <Button onClick={onLoadExampleData} variant="secondary">
+              {t('loadExample', language)}
+            </Button>
           </div>
         )}
       </div>

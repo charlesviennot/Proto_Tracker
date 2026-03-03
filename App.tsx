@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Subject, AppState, Group } from './types';
-import { INITIAL_DAY0, INITIAL_DAY1, INITIAL_DAY2 } from './constants';
+import { Subject, AppState, Group, Language } from './types';
+import { INITIAL_DAY0, INITIAL_DAY1, INITIAL_DAY2, INITIAL_SCREENING, INITIAL_FOLLOW_UP, INITIAL_DEMOGRAPHICS } from './constants';
 import { SubjectList } from './components/SubjectList';
 import { ProtocolWizard } from './components/ProtocolWizard';
 import { Dashboard } from './components/Dashboard';
 import { Button } from './components/Button';
 import { exportSubjectsToExcel } from './services/excelService';
-import { LayoutDashboard, Users, Zap, Download, Stethoscope, Save, Upload } from 'lucide-react';
+import { LayoutDashboard, Users, Zap, Download, Stethoscope, Save, Upload, Wand2, Globe } from 'lucide-react';
+import { t } from './i18n';
 
 export default function App() {
   // --- State ---
@@ -14,7 +15,32 @@ export default function App() {
     // Load from local storage on init
     const saved = localStorage.getItem('audioVitalityApp');
     if (saved) {
-      return JSON.parse(saved);
+      try {
+        const parsed = JSON.parse(saved);
+        // Migrate old data structure to new ClinicalMetrics
+        if (parsed.subjects && Array.isArray(parsed.subjects)) {
+          parsed.subjects = parsed.subjects.map((s: any) => {
+            if (!s.day0.t0) {
+              s.day0.t0 = { nirs: s.day0.smo2Baseline || 0, thb: 0, hrvRmssd: s.day0.hrvBaseline || 0, hrvSdnn: 0, cmj: s.day0.cmjInitial || 0 };
+              s.day0.t1 = { nirs: 0, thb: 0, hrvRmssd: 0, hrvSdnn: 0, cmj: s.day0.cmjPost || 0 };
+            }
+            if (!s.day2.t2) {
+              s.day2.t2 = { nirs: s.day2.smo2Pre || 0, thb: 0, hrvRmssd: s.day2.hrvPre || 0, hrvSdnn: 0, cmj: s.day2.cmjPreSession || 0 };
+              s.day2.t3 = { nirs: s.day2.smo2Post || 0, thb: 0, hrvRmssd: s.day2.hrvRmssdFinal || 0, hrvSdnn: 0, cmj: s.day2.cmjRecovery || 0 };
+            }
+            if (!s.screening) {
+              s.screening = { ...INITIAL_SCREENING };
+            }
+            if (!s.followUp) {
+              s.followUp = { ...INITIAL_FOLLOW_UP };
+            }
+            return s;
+          });
+        }
+        return parsed;
+      } catch (e) {
+        console.error("Failed to parse saved state", e);
+      }
     }
     return {
       subjects: [],
@@ -40,9 +66,12 @@ export default function App() {
       group,
       createdAt: new Date().toISOString(),
       notes: '',
+      demographics: { ...INITIAL_DEMOGRAPHICS },
+      screening: { ...INITIAL_SCREENING },
       day0: { ...INITIAL_DAY0, dropJumps: { ...INITIAL_DAY0.dropJumps, sets: Array(10).fill({ reps: 10, restTime: 60, completed: false }) } },
       day1: { ...INITIAL_DAY1 },
       day2: { ...INITIAL_DAY2 },
+      followUp: { ...INITIAL_FOLLOW_UP },
     };
     setState(prev => ({ ...prev, subjects: [newSubject, ...prev.subjects] }));
   };
@@ -51,6 +80,16 @@ export default function App() {
     setState(prev => ({
       ...prev,
       subjects: prev.subjects.map(s => s.id === updated.id ? updated : s)
+    }));
+  };
+
+  const deleteSubject = (id: string) => {
+    setState(prev => ({
+      ...prev,
+      subjects: prev.subjects.filter(s => s.id !== id),
+      // If we are currently viewing the deleted subject, go back to list
+      currentSubjectId: prev.currentSubjectId === id ? null : prev.currentSubjectId,
+      view: prev.currentSubjectId === id ? 'LIST' : prev.view
     }));
   };
 
@@ -101,6 +140,98 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  const loadExampleData = () => {
+    const examples: Subject[] = [];
+    
+    // AudioVitality Subjects
+    for (let i = 1; i <= 3; i++) {
+      examples.push({
+        id: crypto.randomUUID(),
+        code: `SUB-AV0${i}`,
+        name: `Sujet AV ${i}`,
+        group: 'AUDIOVITALITY',
+        createdAt: new Date().toISOString(),
+        notes: 'Exemple généré',
+        demographics: { age: 30 + i, weight: 75 + i, height: 175 + i, gender: i % 2 === 0 ? 'F' : 'M' },
+        screening: { ageValid: true, noRecentInjuries: true, noChronicPathology: true, noPacemaker: true, noAntiInflammatory: true, consentSigned: true },
+        day0: {
+          ...INITIAL_DAY0,
+          completed: true,
+          date: new Date().toISOString().split('T')[0],
+          hydrationCheck: true,
+          t0: { nirs: 65, thb: 12.1, hrvRmssd: 45, hrvSdnn: 50, cmj: 42 + Math.random() * 4, mvic: 600 + Math.random() * 50 },
+          t1: { nirs: 55, thb: 11.8, hrvRmssd: 30, hrvSdnn: 35, cmj: 32 + Math.random() * 3, mvic: 450 + Math.random() * 40 },
+          biaInitial: { r: 520 + Math.random() * 20, xc: 60, pha: 6.5 },
+          rpePost: 8
+        },
+        day1: {
+          ...INITIAL_DAY1,
+          completed: true,
+          date: new Date().toISOString().split('T')[0],
+          evaPain: 6,
+          sleepQuality: 5 + Math.floor(Math.random() * 3)
+        },
+        day2: {
+          ...INITIAL_DAY2,
+          completed: true,
+          date: new Date().toISOString().split('T')[0],
+          sleepQuality: 6 + Math.floor(Math.random() * 3),
+          t2: { nirs: 58, thb: 11.9, hrvRmssd: 35, hrvSdnn: 40, cmj: 33 + Math.random() * 3, mvic: 480 + Math.random() * 40 },
+          t3: { nirs: 72 + Math.random() * 5, thb: 12.5, hrvRmssd: 50, hrvSdnn: 55, cmj: 40 + Math.random() * 4, mvic: 580 + Math.random() * 40 },
+          biaPre: { r: 470 + Math.random() * 20, xc: 55, pha: 6.0 },
+          biaPost: { r: 510 + Math.random() * 20, xc: 62, pha: 6.8 },
+          painSquatPre: 5
+        },
+        followUp: { painResolvedDays: 2 + Math.floor(Math.random() * 2), notes: '' }
+      });
+    }
+
+    // Control Subjects
+    for (let i = 1; i <= 3; i++) {
+      examples.push({
+        id: crypto.randomUUID(),
+        code: `SUB-CT0${i}`,
+        name: `Sujet Control ${i}`,
+        group: 'CONTROL',
+        createdAt: new Date().toISOString(),
+        notes: 'Exemple généré',
+        demographics: { age: 25 + i, weight: 70 + i, height: 170 + i, gender: i % 2 === 0 ? 'M' : 'F' },
+        screening: { ageValid: true, noRecentInjuries: true, noChronicPathology: true, noPacemaker: true, noAntiInflammatory: true, consentSigned: true },
+        day0: {
+          ...INITIAL_DAY0,
+          completed: true,
+          date: new Date().toISOString().split('T')[0],
+          hydrationCheck: true,
+          t0: { nirs: 65, thb: 12.0, hrvRmssd: 45, hrvSdnn: 50, cmj: 42 + Math.random() * 4, mvic: 600 + Math.random() * 50 },
+          t1: { nirs: 55, thb: 11.7, hrvRmssd: 30, hrvSdnn: 35, cmj: 32 + Math.random() * 3, mvic: 450 + Math.random() * 40 },
+          biaInitial: { r: 520 + Math.random() * 20, xc: 60, pha: 6.5 },
+          rpePost: 8
+        },
+        day1: {
+          ...INITIAL_DAY1,
+          completed: true,
+          date: new Date().toISOString().split('T')[0],
+          evaPain: 7,
+          sleepQuality: 4 + Math.floor(Math.random() * 3)
+        },
+        day2: {
+          ...INITIAL_DAY2,
+          completed: true,
+          date: new Date().toISOString().split('T')[0],
+          sleepQuality: 4 + Math.floor(Math.random() * 3),
+          t2: { nirs: 58, thb: 11.8, hrvRmssd: 35, hrvSdnn: 40, cmj: 33 + Math.random() * 3, mvic: 480 + Math.random() * 40 },
+          t3: { nirs: 60 + Math.random() * 3, thb: 11.9, hrvRmssd: 38, hrvSdnn: 42, cmj: 34 + Math.random() * 3, mvic: 490 + Math.random() * 40 },
+          biaPre: { r: 470 + Math.random() * 20, xc: 55, pha: 6.0 },
+          biaPost: { r: 475 + Math.random() * 20, xc: 56, pha: 6.1 },
+          painSquatPre: 6
+        },
+        followUp: { painResolvedDays: 4 + Math.floor(Math.random() * 3), notes: '' }
+      });
+    }
+
+    setState(prev => ({ ...prev, subjects: [...examples, ...prev.subjects] }));
+  };
+
   // --- Render View ---
   const renderContent = () => {
     if (state.view === 'PROTOCOL' && state.currentSubjectId) {
@@ -113,12 +244,14 @@ export default function App() {
           onUpdate={updateSubject}
           fastTrack={state.fastTrackMode}
           onBack={() => setState(prev => ({ ...prev, view: 'LIST', currentSubjectId: null }))}
+          onDelete={deleteSubject}
+          language={state.language || 'fr'}
         />
       );
     }
 
     if (state.view === 'DASHBOARD') {
-      return <Dashboard subjects={state.subjects} />;
+      return <Dashboard subjects={state.subjects} language={state.language || 'fr'} />;
     }
 
     return (
@@ -126,6 +259,9 @@ export default function App() {
         subjects={state.subjects}
         onSelect={handleSelectSubject}
         onAdd={addSubject}
+        onDelete={deleteSubject}
+        onLoadExampleData={loadExampleData}
+        language={state.language || 'fr'}
       />
     );
   };
@@ -153,12 +289,23 @@ export default function App() {
                  <h1 className="text-2xl font-bold tracking-tight text-medical-text leading-tight">
                    AudioVitality<span className="text-medical-bronze">.</span>
                  </h1>
-                 <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">Research Tracker</p>
+                 <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">{t('appTitle', state.language || 'fr')}</p>
               </div>
             </div>
             
             {/* Top Tools */}
             <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => setState(p => ({...p, language: p.language === 'en' ? 'fr' : 'en'}))}
+                className="p-3 text-gray-400 hover:text-medical-blue hover:bg-blue-50 rounded-2xl transition-all duration-300 flex items-center gap-2 font-bold"
+                title="Changer de langue / Change language"
+              >
+                <Globe className="w-5 h-5" />
+                <span className="text-xs uppercase">{state.language === 'en' ? 'EN' : 'FR'}</span>
+              </button>
+
+              <div className="h-8 w-px bg-gray-200 mx-2"></div>
+
               <button 
                 onClick={() => setState(p => ({...p, fastTrackMode: !p.fastTrackMode}))}
                 className={`p-3 rounded-2xl transition-all duration-300 ${state.fastTrackMode ? 'bg-purple-100 text-purple-700 ring-2 ring-purple-200' : 'text-gray-300 hover:bg-gray-50'}`}
@@ -184,6 +331,14 @@ export default function App() {
                 title="Importer une sauvegarde"
               >
                  <Upload className="w-5 h-5" />
+              </button>
+              
+              <button 
+                onClick={loadExampleData} 
+                className="p-3 text-gray-400 hover:text-medical-bronze hover:bg-yellow-50 rounded-2xl transition-all duration-300"
+                title="Charger des données d'exemple"
+              >
+                 <Wand2 className="w-5 h-5" />
               </button>
               
                <div className="h-8 w-px bg-gray-200 mx-2"></div>

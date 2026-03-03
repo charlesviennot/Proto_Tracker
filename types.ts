@@ -1,3 +1,4 @@
+
 export type Group = 'CONTROL' | 'AUDIOVITALITY';
 
 export interface DropJumpSession {
@@ -10,37 +11,88 @@ export interface DropJumpSession {
   }[];
 }
 
+export interface BiaData {
+  r: number; // Resistance (Ohms)
+  xc: number; // Reactance (Ohms)
+  pha: number; // Phase Angle (Degrees)
+}
+
+export interface ClinicalMetrics {
+  nirs: number; // SmO2 %
+  thb?: number; // Total Hemoglobin g/dL
+  hrvRmssd: number; // ms
+  hrvSdnn: number; // ms
+  cmj: number; // cm
+  mvic: number; // Maximum Voluntary Isometric Contraction (kg or N)
+}
+
 export interface Day0Data {
   completed: boolean;
   date: string;
   hydrationCheck: boolean; // 500ml intake
-  hrvBaseline: number; // ms
-  smo2Baseline: number; // %
-  cmjInitial: number; // cm (T0)
+  t0: ClinicalMetrics; // Baseline
+  biaInitial: BiaData; // T0 Baseline
+  quadricepsStiffnessInitial: number; // Angle in degrees (lower is better)
   dropJumps: DropJumpSession;
   rpePost: number; // 0-10
-  cmjPost: number; // cm (T1)
+  t1: ClinicalMetrics; // Post-Exercise
 }
 
 export interface Day1Data {
   completed: boolean;
   date: string;
   evaPain: number; // 0-10
+  sleepQuality: number; // 1-10
+  t24h: ClinicalMetrics; // 24h follow-up
+}
+
+export interface TreatmentMoxyData {
+  avgStartTHb: number;
+  avgEndTHb: number;
+  deltaTHb: number;
+  slopeTHb: number;
+  avgStartSmO2: number;
+  avgEndSmO2: number;
+  deltaSmO2: number;
+  slopeSmO2: number;
 }
 
 export interface Day2Data {
   completed: boolean;
   date: string;
+  sleepQuality: number; // 1-10
   urineDensity: number; // <= 1.025
   painSquatPre: number; // 0-10
-  hrvPre: number; // ms
-  smo2Pre: number; // %
-  cmjPreSession: number; // cm (T2 - Pre-Treatment)
+  t2: ClinicalMetrics; // T2 Pre-Session (Check Edema)
+  biaPre: BiaData; // T2 Pre-Session (Check Edema)
+  quadricepsStiffnessPre: number; // Angle in degrees (T2)
   sessionDuration: number; // minutes (target 40)
-  smo2Post: number; // %
+  treatmentMoxy?: TreatmentMoxyData; // 40-minute continuous measurement
+  t3: ClinicalMetrics; // T3 Post-Session (Check Drainage)
+  biaPost: BiaData; // T3 Post-Session (Check Drainage)
+  quadricepsStiffnessPost: number; // Angle in degrees (T3)
   painDelta: number; // Calculated or input
-  hrvRmssdFinal: number; // ms
-  cmjRecovery: number; // cm (T3 - Post-Treatment)
+}
+
+export interface ScreeningData {
+  ageValid: boolean; // 18-60 years old
+  noRecentInjuries: boolean; // No lower limb injuries in last 6 months
+  noChronicPathology: boolean; // No cardiovascular, metabolic, or chronic inflammatory pathology
+  noPacemaker: boolean; // No implanted electronic devices (Pacemaker)
+  noAntiInflammatory: boolean; // No NSAIDs or heavy antioxidants
+  consentSigned: boolean;
+}
+
+export interface FollowUpData {
+  painResolvedDays: number | null; // Days until pain completely disappeared
+  notes: string;
+}
+
+export interface Demographics {
+  age: number | null;
+  weight: number | null; // kg
+  height: number | null; // cm
+  gender: 'M' | 'F' | 'OTHER' | null;
 }
 
 export interface Subject {
@@ -50,16 +102,21 @@ export interface Subject {
   name: string;
   createdAt: string;
   notes: string; // Clinical notes
+  demographics: Demographics;
+  screening: ScreeningData;
   day0: Day0Data;
   day1: Day1Data;
   day2: Day2Data;
+  followUp: FollowUpData;
 }
 
 export type ViewState = 'LIST' | 'DASHBOARD' | 'PROTOCOL';
+export type Language = 'fr' | 'en';
 
 export interface AppState {
   subjects: Subject[];
   currentSubjectId: string | null;
   view: ViewState;
   fastTrackMode: boolean; // For dev/demo
+  language: Language;
 }

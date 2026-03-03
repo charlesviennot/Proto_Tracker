@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, SkipForward, CheckCircle, RotateCcw, Timer } from 'lucide-react';
+import { Play, SkipForward, CheckCircle, RotateCcw, Timer, Edit3 } from 'lucide-react';
 import { DropJumpSession } from '../types';
 import { Button } from './Button';
 
@@ -57,6 +57,10 @@ export const DropJumpTracker: React.FC<Props> = ({ data, onUpdate, onComplete })
     }
   };
 
+  const handleUnlock = () => {
+      onUpdate({ ...data, completed: false });
+  };
+
   const currentSet = data.sets[currentSetIndex];
   
   // Calculate SVG Circle progress
@@ -67,12 +71,19 @@ export const DropJumpTracker: React.FC<Props> = ({ data, onUpdate, onComplete })
   
   if (data.completed) {
       return (
-          <div className="bg-green-50 rounded-[2rem] p-8 text-center border border-green-100">
-              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="bg-green-50 rounded-[2rem] p-8 text-center border border-green-100 flex flex-col items-center">
+              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
                   <CheckCircle className="w-8 h-8" />
               </div>
               <h3 className="text-xl font-bold text-green-800">Induction Terminée</h3>
-              <p className="text-green-600">Total: {data.totalJumps} sauts validés.</p>
+              <p className="text-green-600 mb-6">Total: {data.totalJumps} sauts validés.</p>
+              
+              <button 
+                onClick={handleUnlock}
+                className="text-xs font-bold text-green-600/50 hover:text-green-600 flex items-center gap-2 transition-colors"
+              >
+                  <Edit3 className="w-4 h-4" /> Rouvrir / Modifier
+              </button>
           </div>
       )
   }

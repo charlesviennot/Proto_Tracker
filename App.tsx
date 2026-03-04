@@ -6,40 +6,28 @@ import { ProtocolWizard } from './components/ProtocolWizard';
 import { Dashboard } from './components/Dashboard';
 import { Button } from './components/Button';
 import { exportSubjectsToExcel } from './services/excelService';
-import { LayoutDashboard, Users, Zap, Download, Stethoscope, Save, Upload, Wand2, Globe } from 'lucide-react';
+import { LayoutDashboard, Users, Zap, Download, Stethoscope, Save, Upload, Wand2, Globe, Loader2 } from 'lucide-react';
 import { t } from './i18n';
+import { db } from './firebase';
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 export default function App() {
   // --- State ---
   const [state, setState] = useState<AppState>(() => {
-    // Load from local storage on init
-    const saved = localStorage.getItem('audioVitalityApp');
-    if (saved) {
+    // Load UI preferences from local storage on init
+    const savedPrefs = localStorage.getItem('audioVitalityPrefs');
+    if (savedPrefs) {
       try {
-        const parsed = JSON.parse(saved);
-        // Migrate old data structure to new ClinicalMetrics
-        if (parsed.subjects && Array.isArray(parsed.subjects)) {
-          parsed.subjects = parsed.subjects.map((s: any) => {
-            if (!s.day0.t0) {
-              s.day0.t0 = { nirs: s.day0.smo2Baseline || 0, thb: 0, hrvRmssd: s.day0.hrvBaseline || 0, hrvSdnn: 0, cmj: s.day0.cmjInitial || 0 };
-              s.day0.t1 = { nirs: 0, thb: 0, hrvRmssd: 0, hrvSdnn: 0, cmj: s.day0.cmjPost || 0 };
-            }
-            if (!s.day2.t2) {
-              s.day2.t2 = { nirs: s.day2.smo2Pre || 0, thb: 0, hrvRmssd: s.day2.hrvPre || 0, hrvSdnn: 0, cmj: s.day2.cmjPreSession || 0 };
-              s.day2.t3 = { nirs: s.day2.smo2Post || 0, thb: 0, hrvRmssd: s.day2.hrvRmssdFinal || 0, hrvSdnn: 0, cmj: s.day2.cmjRecovery || 0 };
-            }
-            if (!s.screening) {
-              s.screening = { ...INITIAL_SCREENING };
-            }
-            if (!s.followUp) {
-              s.followUp = { ...INITIAL_FOLLOW_UP };
-            }
-            return s;
-          });
-        }
-        return parsed;
+        const parsed = JSON.parse(savedPrefs);
+        return {
+          subjects: [], // Will be loaded from Firebase
+          currentSubjectId: null,
+          view: 'LIST',
+          fastTrackMode: parsed.fastTrackMode || false,
+          language: parsed.language || 'fr'
+        };
       } catch (e) {
-        console.error("Failed to parse saved state", e);
+        console.error("Failed to parse saved prefs", e);
       }
     }
     return {
@@ -47,18 +35,85 @@ export default function App() {
       currentSubjectId: null,
       view: 'LIST',
       fastTrackMode: false,
+      language: 'fr'
     };
   });
   
+  const [isLoading, setIsLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Persistence ---
+  // Save UI preferences to localStorage
   useEffect(() => {
-    localStorage.setItem('audioVitalityApp', JSON.stringify(state));
-  }, [state]);
+    localStorage.setItem('audioVitalityPrefs', JSON.stringify({
+      fastTrackMode: state.fastTrackMode,
+      language: state.language
+    }));
+  }, [state.fastTrackMode, state.language]);
+
+  // Fetch subjects from Firebase on mount
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "subjects"));
+        const loadedSubjects: Subject[] = [];
+        querySnapshot.forEach((doc) => {
+          loadedSubjects.push(doc.data() as Subject);
+        });
+
+        // One-time migration from old localStorage to Firebase
+        if (loadedSubjects.length === 0) {
+           const savedOld = localStorage.getItem('audioVitalityApp');
+           if (savedOld) {
+             try {
+               const parsedOld = JSON.parse(savedOld);
+               if (parsedOld.subjects && Array.isArray(parsedOld.subjects) && parsedOld.subjects.length > 0) {
+                  console.log("Migrating local subjects to Firebase...");
+                  for (const s of parsedOld.subjects) {
+                     await setDoc(doc(db, "subjects", s.id), s);
+                     loadedSubjects.push(s);
+                  }
+               }
+             } catch (e) {
+               console.error("Error migrating old local data", e);
+             }
+           }
+        }
+
+        // Sort by createdAt desc
+        loadedSubjects.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        // Migrate old data structure to new ClinicalMetrics
+        const migratedSubjects = loadedSubjects.map((s: any) => {
+          if (!s.day0.t0) {
+            s.day0.t0 = { nirs: s.day0.smo2Baseline || 0, thb: 0, hrvRmssd: s.day0.hrvBaseline || 0, hrvSdnn: 0, cmj: s.day0.cmjInitial || 0 };
+            s.day0.t1 = { nirs: 0, thb: 0, hrvRmssd: 0, hrvSdnn: 0, cmj: s.day0.cmjPost || 0 };
+          }
+          if (!s.day2.t2) {
+            s.day2.t2 = { nirs: s.day2.smo2Pre || 0, thb: 0, hrvRmssd: s.day2.hrvPre || 0, hrvSdnn: 0, cmj: s.day2.cmjPreSession || 0 };
+            s.day2.t3 = { nirs: s.day2.smo2Post || 0, thb: 0, hrvRmssd: s.day2.hrvRmssdFinal || 0, hrvSdnn: 0, cmj: s.day2.cmjRecovery || 0 };
+          }
+          if (!s.screening) {
+            s.screening = { ...INITIAL_SCREENING };
+          }
+          if (!s.followUp) {
+            s.followUp = { ...INITIAL_FOLLOW_UP };
+          }
+          return s;
+        });
+
+        setState(prev => ({ ...prev, subjects: migratedSubjects }));
+      } catch (error) {
+        console.error("Error fetching subjects from Firebase:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSubjects();
+  }, []);
 
   // --- Actions ---
-  const addSubject = (name: string, group: Group) => {
+  const addSubject = async (name: string, group: Group) => {
     const newSubject: Subject = {
       id: crypto.randomUUID(),
       code: `SUB-${String(state.subjects.length + 1).padStart(3, '0')}`,
@@ -73,24 +128,43 @@ export default function App() {
       day2: { ...INITIAL_DAY2 },
       followUp: { ...INITIAL_FOLLOW_UP },
     };
-    setState(prev => ({ ...prev, subjects: [newSubject, ...prev.subjects] }));
+    
+    try {
+      await setDoc(doc(db, "subjects", newSubject.id), newSubject);
+      setState(prev => ({ ...prev, subjects: [newSubject, ...prev.subjects] }));
+    } catch (error) {
+      console.error("Error adding subject to Firebase:", error);
+      alert("Erreur lors de la création du sujet dans la base de données.");
+    }
   };
 
-  const updateSubject = (updated: Subject) => {
-    setState(prev => ({
-      ...prev,
-      subjects: prev.subjects.map(s => s.id === updated.id ? updated : s)
-    }));
+  const updateSubject = async (updated: Subject) => {
+    try {
+      await setDoc(doc(db, "subjects", updated.id), updated);
+      setState(prev => ({
+        ...prev,
+        subjects: prev.subjects.map(s => s.id === updated.id ? updated : s)
+      }));
+    } catch (error) {
+      console.error("Error updating subject in Firebase:", error);
+      alert("Erreur lors de la mise à jour du sujet.");
+    }
   };
 
-  const deleteSubject = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      subjects: prev.subjects.filter(s => s.id !== id),
-      // If we are currently viewing the deleted subject, go back to list
-      currentSubjectId: prev.currentSubjectId === id ? null : prev.currentSubjectId,
-      view: prev.currentSubjectId === id ? 'LIST' : prev.view
-    }));
+  const deleteSubject = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "subjects", id));
+      setState(prev => ({
+        ...prev,
+        subjects: prev.subjects.filter(s => s.id !== id),
+        // If we are currently viewing the deleted subject, go back to list
+        currentSubjectId: prev.currentSubjectId === id ? null : prev.currentSubjectId,
+        view: prev.currentSubjectId === id ? 'LIST' : prev.view
+      }));
+    } catch (error) {
+      console.error("Error deleting subject from Firebase:", error);
+      alert("Erreur lors de la suppression du sujet.");
+    }
   };
 
   const handleSelectSubject = (id: string) => {
@@ -116,18 +190,29 @@ export default function App() {
     fileInputRef.current?.click();
   };
 
-  const handleRestoreFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
         if (json.subjects && Array.isArray(json.subjects)) {
-          if (confirm("Attention : Cette action va remplacer toutes les données actuelles par celles du fichier de sauvegarde. Continuer ?")) {
-             setState(json);
-             alert("Restauration réussie !");
+          if (confirm("Attention : Cette action va importer les données du fichier de sauvegarde vers la base de données. Continuer ?")) {
+             setIsLoading(true);
+             try {
+               for (const subject of json.subjects) {
+                 await setDoc(doc(db, "subjects", subject.id), subject);
+               }
+               setState(prev => ({ ...prev, subjects: json.subjects }));
+               alert("Restauration réussie vers Firebase !");
+             } catch (error) {
+               console.error("Error restoring to Firebase:", error);
+               alert("Erreur lors de la restauration vers Firebase.");
+             } finally {
+               setIsLoading(false);
+             }
           }
         } else {
           alert("Format de fichier invalide.");
@@ -140,7 +225,7 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  const loadExampleData = () => {
+  const loadExampleData = async () => {
     const examples: Subject[] = [];
     
     // AudioVitality Subjects
@@ -229,7 +314,19 @@ export default function App() {
       });
     }
 
-    setState(prev => ({ ...prev, subjects: [...examples, ...prev.subjects] }));
+    setIsLoading(true);
+    try {
+      for (const subject of examples) {
+        await setDoc(doc(db, "subjects", subject.id), subject);
+      }
+      setState(prev => ({ ...prev, subjects: [...examples, ...prev.subjects] }));
+      alert("Données d'exemple chargées avec succès dans Firebase !");
+    } catch (error) {
+      console.error("Error saving examples to Firebase:", error);
+      alert("Erreur lors du chargement des exemples.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // --- Render View ---
@@ -265,6 +362,15 @@ export default function App() {
       />
     );
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-medical-bg flex flex-col items-center justify-center">
+        <Loader2 className="w-12 h-12 text-medical-blue animate-spin mb-4" />
+        <p className="text-slate-500 font-bold">Connexion à Firebase...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-medical-bg font-sans text-medical-text selection:bg-medical-bronze/20">

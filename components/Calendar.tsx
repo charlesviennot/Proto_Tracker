@@ -16,7 +16,7 @@ import {
   subMonths
 } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, User, Link as LinkIcon, Check } from 'lucide-react';
 import { t } from '../i18n';
 
 interface CalendarProps {
@@ -42,7 +42,16 @@ interface ProtocolEvent {
 export function Calendar({ subjects, onSelectSubject, language }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [copied, setCopied] = useState(false);
   const locale = language === 'fr' ? fr : enUS;
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/api/calendar.ics`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   // Generate events based on subject data
   const events = useMemo(() => {
@@ -191,6 +200,22 @@ export function Calendar({ subjects, onSelectSubject, language }: CalendarProps)
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Export Button */}
+          <button
+            onClick={handleCopyLink}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+              copied 
+                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-medical-blue hover:border-medical-blue/30 shadow-sm'
+            }`}
+            title="Copier le lien d'abonnement pour Google Agenda"
+          >
+            {copied ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+            <span className="hidden sm:inline">{copied ? 'Lien copié !' : 'Google Agenda'}</span>
+          </button>
+
+          <div className="w-px h-8 bg-slate-200 hidden sm:block"></div>
+
           {/* View Toggle */}
           <div className="flex bg-slate-100 p-1 rounded-xl">
             <button

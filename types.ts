@@ -29,6 +29,7 @@ export interface ClinicalMetrics {
 export interface Day0Data {
   completed: boolean;
   date: string;
+  time?: string;
   hydrationCheck: boolean; // 500ml intake
   t0: ClinicalMetrics; // Baseline
   biaInitial: BiaData; // T0 Baseline
@@ -41,6 +42,7 @@ export interface Day0Data {
 export interface Day1Data {
   completed: boolean;
   date: string;
+  time?: string;
   evaPain: number; // 0-10
   sleepQuality: number; // 1-10
   t24h: ClinicalMetrics; // 24h follow-up
@@ -57,9 +59,18 @@ export interface TreatmentMoxyData {
   slopeSmO2: number;
 }
 
+export interface TimeSeriesPoint {
+  time: number; // seconds
+  smo2?: number;
+  thb?: number;
+  hr?: number;
+  rmssd?: number;
+}
+
 export interface Day2Data {
   completed: boolean;
   date: string;
+  time?: string;
   sleepQuality: number; // 1-10
   urineDensity: number; // <= 1.025
   painSquatPre: number; // 0-10
@@ -68,6 +79,7 @@ export interface Day2Data {
   quadricepsStiffnessPre: number; // Angle in degrees (T2)
   sessionDuration: number; // minutes (target 40)
   treatmentMoxy?: TreatmentMoxyData; // 40-minute continuous measurement
+  treatmentTimeSeries?: TimeSeriesPoint[]; // 40-minute continuous time series data
   t3: ClinicalMetrics; // T3 Post-Session (Check Drainage)
   biaPost: BiaData; // T3 Post-Session (Check Drainage)
   quadricepsStiffnessPost: number; // Angle in degrees (T3)
@@ -110,7 +122,7 @@ export interface Subject {
   followUp: FollowUpData;
 }
 
-export type ViewState = 'LIST' | 'DASHBOARD' | 'PROTOCOL';
+export type ViewState = 'LIST' | 'DASHBOARD' | 'PROTOCOL' | 'CALENDAR' | 'DATA_HUB' | 'PROFILE';
 export type Language = 'fr' | 'en';
 
 export interface AppState {

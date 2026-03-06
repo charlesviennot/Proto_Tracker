@@ -80,22 +80,29 @@ const parseTreatmentMoxyCSV = (csvText: string): TreatmentMoxyData | null => {
     try {
         const lines = csvText.split('\n');
         const dataPoints: { time: number, smo2: number, thb: number }[] = [];
+        const separator = csvText.includes(';') ? ';' : ',';
 
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
-            const columns = line.split(';');
-            if (columns.length >= 4) {
-                let timeStr = columns[1]?.replace(',', '.');
-                let timeVal = parseFloat(timeStr);
-                if (isNaN(timeVal)) {
-                    timeStr = columns[0]?.replace(',', '.');
-                    timeVal = parseFloat(timeStr);
+            const columns = line.split(separator);
+            if (columns.length >= 3) {
+                // Handle both 3-column (Time, SmO2, THb) and 4-column (Record, Time, SmO2, THb) formats
+                let timeIdx = columns.length >= 4 ? 1 : 0;
+                let smo2Idx = columns.length >= 4 ? 2 : 1;
+                let thbIdx = columns.length >= 4 ? 3 : 2;
+
+                let timeVal = parseFloat(columns[timeIdx]?.replace(',', '.'));
+                if (isNaN(timeVal) && timeIdx === 1) {
+                    timeVal = parseFloat(columns[0]?.replace(',', '.'));
+                    if (!isNaN(timeVal)) {
+                        smo2Idx = 1;
+                        thbIdx = 2;
+                    }
                 }
-                const smo2Str = columns[2]?.replace(',', '.');
-                const thbStr = columns[3]?.replace(',', '.');
-                const smo2Val = parseFloat(smo2Str);
-                const thbVal = parseFloat(thbStr);
+                
+                const smo2Val = parseFloat(columns[smo2Idx]?.replace(',', '.'));
+                const thbVal = parseFloat(columns[thbIdx]?.replace(',', '.'));
                 
                 if (!isNaN(smo2Val) && !isNaN(thbVal) && !isNaN(timeVal)) {
                     dataPoints.push({ time: timeVal, smo2: smo2Val, thb: thbVal });
@@ -104,10 +111,18 @@ const parseTreatmentMoxyCSV = (csvText: string): TreatmentMoxyData | null => {
         }
 
         if (dataPoints.length > 0) {
-            // Step A: Baseline (0 to 120s)
-            const startData = dataPoints.filter(dp => dp.time >= 0 && dp.time <= 120);
-            // Step B: End (2280 to 2400s) - 38 to 40 mins
-            const endData = dataPoints.filter(dp => dp.time >= 2280 && dp.time <= 2400);
+            // Sort by time just in case
+            dataPoints.sort((a, b) => a.time - b.time);
+            
+            const maxTime = dataPoints[dataPoints.length - 1].time;
+            
+            // Step A: Baseline (first 120s of data)
+            const startData = dataPoints.filter(dp => dp.time <= 120);
+            
+            // Step B: End (last 120s of data, or 38-40 mins if available)
+            // If file is shorter than 40 mins, just take the last 2 minutes
+            const endStartTime = Math.max(120, maxTime - 120);
+            const endData = dataPoints.filter(dp => dp.time >= endStartTime && dp.time <= maxTime);
 
             if (startData.length > 0 && endData.length > 0) {
                 const avgStartTHb = startData.reduce((sum, dp) => sum + dp.thb, 0) / startData.length;
@@ -116,10 +131,11 @@ const parseTreatmentMoxyCSV = (csvText: string): TreatmentMoxyData | null => {
                 const avgEndSmO2 = endData.reduce((sum, dp) => sum + dp.smo2, 0) / endData.length;
 
                 const deltaTHb = avgEndTHb - avgStartTHb;
-                const slopeTHb = deltaTHb / 40; // per minute
+                const durationMinutes = maxTime / 60;
+                const slopeTHb = durationMinutes > 0 ? deltaTHb / durationMinutes : 0;
 
                 const deltaSmO2 = avgEndSmO2 - avgStartSmO2;
-                const slopeSmO2 = deltaSmO2 / 40; // per minute
+                const slopeSmO2 = durationMinutes > 0 ? deltaSmO2 / durationMinutes : 0;
 
                 return {
                     avgStartTHb: Math.round(avgStartTHb * 100) / 100,
@@ -138,6 +154,133 @@ const parseTreatmentMoxyCSV = (csvText: string): TreatmentMoxyData | null => {
         console.error("Error parsing Treatment Moxy CSV:", error);
         return null;
     }
+};
+
+// --- TIME SERIES PARSERS ---
+const parseMoxyTimeSeries = (csvText: string) => {
+    try {
+        const lines = csvText.split('\n');
+        const buckets: Record<number, { smo2: number[], thb: number[] }> = {};
+        const separator = csvText.includes(';') ? ';' : ',';
+        
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            const columns = line.split(separator);
+            if (columns.length >= 3) {
+                let timeIdx = columns.length >= 4 ? 1 : 0;
+                let smo2Idx = columns.length >= 4 ? 2 : 1;
+                let thbIdx = columns.length >= 4 ? 3 : 2;
+
+                let timeVal = parseFloat(columns[timeIdx]?.replace(',', '.'));
+                if (isNaN(timeVal) && timeIdx === 1) {
+                    timeVal = parseFloat(columns[0]?.replace(',', '.'));
+                    if (!isNaN(timeVal)) {
+                        smo2Idx = 1;
+                        thbIdx = 2;
+                    }
+                }
+                
+                const smo2Val = parseFloat(columns[smo2Idx]?.replace(',', '.'));
+                const thbVal = parseFloat(columns[thbIdx]?.replace(',', '.'));
+                
+                if (!isNaN(smo2Val) && !isNaN(thbVal) && !isNaN(timeVal)) {
+                    const bucket = Math.floor(timeVal / 30) * 30; // 30s buckets
+                    if (!buckets[bucket]) buckets[bucket] = { smo2: [], thb: [] };
+                    buckets[bucket].smo2.push(smo2Val);
+                    buckets[bucket].thb.push(thbVal);
+                }
+            }
+        }
+        
+        const timeSeries: { time: number, smo2: number, thb: number }[] = [];
+        for (const bucketStr of Object.keys(buckets)) {
+            const bucket = parseInt(bucketStr);
+            const data = buckets[bucket];
+            if (data.smo2.length > 0) {
+                const smo2 = Math.round((data.smo2.reduce((a,b)=>a+b,0) / data.smo2.length) * 10) / 10;
+                const thb = Math.round((data.thb.reduce((a,b)=>a+b,0) / data.thb.length) * 100) / 100;
+                timeSeries.push({ time: bucket, smo2, thb });
+            }
+        }
+        return timeSeries;
+    } catch (error) {
+        console.error("Error parsing Moxy Time Series:", error);
+        return [];
+    }
+};
+
+const parseEliteHRVTimeSeries = (csvText: string) => {
+    try {
+        const lines = csvText.split('\n');
+        const rrIntervals: number[] = [];
+        
+        // Elite HRV / Polar usually exports RR intervals in ms or s, one per line or in a specific column
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            
+            // Split by space, tab, or semicolon. We avoid splitting by comma to handle decimal commas (e.g., 0,800)
+            const parts = trimmed.split(/[\s;]+/);
+            for (const part of parts) {
+                let val = parseFloat(part.replace(',', '.'));
+                if (!isNaN(val)) {
+                    // If the value is between 0.2 and 2.0, it's likely in seconds. Convert to ms.
+                    if (val > 0.2 && val < 2.0) {
+                        val = val * 1000;
+                    }
+                    // Valid RR range (30 to 300 BPM -> 2000ms to 200ms)
+                    if (val >= 200 && val <= 2000) {
+                        rrIntervals.push(val);
+                    }
+                }
+            }
+        }
+        
+        const buckets: Record<number, { rrs: number[], diffs: number[] }> = {};
+        let currentTimeMs = 0;
+        
+        for (let i = 0; i < rrIntervals.length; i++) {
+            const rr = rrIntervals[i];
+            currentTimeMs += rr;
+            const timeSec = currentTimeMs / 1000;
+            const bucket = Math.floor(timeSec / 30) * 30; // 30s buckets
+            
+            if (!buckets[bucket]) buckets[bucket] = { rrs: [], diffs: [] };
+            buckets[bucket].rrs.push(rr);
+            
+            if (i > 0) {
+                const prevRr = rrIntervals[i-1];
+                buckets[bucket].diffs.push(Math.pow(rr - prevRr, 2));
+            }
+        }
+        
+        const timeSeries: { time: number, hr: number, rmssd: number }[] = [];
+        for (const bucketStr of Object.keys(buckets)) {
+            const bucket = parseInt(bucketStr);
+            const data = buckets[bucket];
+            if (data.rrs.length > 0) {
+                const avgRr = data.rrs.reduce((a,b)=>a+b,0) / data.rrs.length;
+                const hr = Math.round(60000 / avgRr);
+                const rmssd = data.diffs.length > 0 ? Math.round(Math.sqrt(data.diffs.reduce((a,b)=>a+b,0) / data.diffs.length)) : 0;
+                timeSeries.push({ time: bucket, hr, rmssd });
+            }
+        }
+        return timeSeries;
+    } catch (error) {
+        console.error("Error parsing Elite HRV Time Series:", error);
+        return [];
+    }
+};
+
+const mergeTimeSeries = (existing: any[] = [], newPoints: any[]) => {
+    const map = new Map<number, any>();
+    existing.forEach(p => map.set(p.time, { ...p }));
+    newPoints.forEach(p => {
+        const ex = map.get(p.time) || { time: p.time };
+        map.set(p.time, { ...ex, ...p });
+    });
+    return Array.from(map.values()).sort((a, b) => a.time - b.time);
 };
 
 // --- METRICS COMPONENT ---
@@ -183,7 +326,7 @@ const MetricsInputGroup: React.FC<MetricsInputProps> = ({ metrics, onChange, lab
                 </span>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
                 {/* NIRS */}
                 <div>
                     <div className="flex justify-between items-center mb-1">
@@ -1150,15 +1293,23 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                    <h3 className="text-xl font-bold text-medical-text">Mesures Initiales (T0)</h3>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                   <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200">
-                      <label className="block text-xs font-bold text-gray-400 uppercase mb-3">Date & Hydratation</label>
-                      <input 
-                        type="date" 
-                        value={subject.day0.date}
-                        onChange={e => updateDay0({ date: e.target.value })}
-                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 mb-4 focus:ring-2 focus:ring-medical-blue outline-none"
-                      />
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                   <div className="lg:col-span-3 bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-3">Date & Heure</label>
+                      <div className="flex gap-2 mb-4">
+                        <input 
+                          type="date" 
+                          value={subject.day0.date}
+                          onChange={e => updateDay0({ date: e.target.value })}
+                          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-medical-blue outline-none"
+                        />
+                        <input 
+                          type="time" 
+                          value={subject.day0.time || ''}
+                          onChange={e => updateDay0({ time: e.target.value })}
+                          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-medical-blue outline-none"
+                        />
+                      </div>
                       <label className="flex items-center gap-3 cursor-pointer group">
                         <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${subject.day0.hydrationCheck ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300 bg-white'}`}>
                            {subject.day0.hydrationCheck && <Check className="w-4 h-4" />}
@@ -1173,7 +1324,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                       </label>
                    </div>
 
-                   <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                   <div className="lg:col-span-6 bg-slate-50 p-6 rounded-3xl border border-slate-200">
                       <label className="block text-xs font-bold text-gray-400 uppercase mb-3">Métriques Physiologiques (T0)</label>
                       <div className="space-y-4">
                         <MetricsInputGroup 
@@ -1210,7 +1361,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                       </div>
                    </div>
 
-                   <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 flex flex-col justify-center relative overflow-hidden group">
+                   <div className="lg:col-span-3 bg-blue-50 p-6 rounded-3xl border border-blue-100 flex flex-col justify-center relative overflow-hidden group">
                       <div className="absolute top-0 right-0 p-4 opacity-5 transform group-hover:scale-110 transition-transform">
                         <Activity className="w-32 h-32" />
                       </div>
@@ -1308,13 +1459,21 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                   <p className="text-gray-500">Évaluation de la douleur différée.</p>
 
                   <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200 shadow-sm text-left">
-                     <label className="block text-xs font-bold text-gray-400 uppercase mb-4">Date du relevé</label>
-                     <input 
-                        type="date" 
-                        value={subject.day1.date}
-                        onChange={e => updateDay1({ date: e.target.value })}
-                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 mb-8 focus:ring-2 focus:ring-medical-blue outline-none font-bold"
-                      />
+                     <label className="block text-xs font-bold text-gray-400 uppercase mb-4">Date et Heure du relevé</label>
+                     <div className="flex gap-2 mb-8">
+                       <input 
+                          type="date" 
+                          value={subject.day1.date}
+                          onChange={e => updateDay1({ date: e.target.value })}
+                          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-medical-blue outline-none font-bold"
+                        />
+                        <input 
+                          type="time" 
+                          value={subject.day1.time || ''}
+                          onChange={e => updateDay1({ time: e.target.value })}
+                          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-medical-blue outline-none font-bold"
+                        />
+                     </div>
 
                       <label className="block text-xs font-bold text-gray-400 uppercase mb-4">Douleur EVA (0-10)</label>
                       <input 
@@ -1371,46 +1530,66 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                    <h3 className="text-xl font-bold text-medical-text">Pré-Session (T2)</h3>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-                   <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Sommeil (0-10)</label>
-                      <div className="flex items-center justify-between">
-                         <input 
-                           type="number" max="10"
-                           value={subject.day2.sleepQuality || 0}
-                           onChange={e => updateDay2({ sleepQuality: parseInt(e.target.value) })}
-                           className="w-16 bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:ring-2 focus:ring-purple-500 outline-none"
-                         />
-                         <span className="text-xs font-bold text-gray-400">/ 10</span>
-                      </div>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                   <div className="lg:col-span-3 space-y-6">
+                       <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Date & Heure</label>
+                          <div className="flex flex-col gap-2">
+                             <input 
+                               type="date"
+                               value={subject.day2.date || ''}
+                               onChange={e => updateDay2({ date: e.target.value })}
+                               className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:ring-2 focus:ring-purple-500 outline-none"
+                             />
+                             <input 
+                               type="time"
+                               value={subject.day2.time || ''}
+                               onChange={e => updateDay2({ time: e.target.value })}
+                               className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:ring-2 focus:ring-purple-500 outline-none"
+                             />
+                          </div>
+                       </div>
+
+                       <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Sommeil (0-10)</label>
+                          <div className="flex items-center justify-between">
+                             <input 
+                               type="number" max="10"
+                               value={subject.day2.sleepQuality || 0}
+                               onChange={e => updateDay2({ sleepQuality: parseInt(e.target.value) })}
+                               className="w-16 bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:ring-2 focus:ring-purple-500 outline-none"
+                             />
+                             <span className="text-xs font-bold text-gray-400">/ 10</span>
+                          </div>
+                       </div>
+
+                       <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Densité Urine</label>
+                          <input 
+                             type="number" step="0.001"
+                             value={subject.day2.urineDensity || ''}
+                             onChange={e => updateDay2({ urineDensity: parseFloat(e.target.value) })}
+                             className={`w-full bg-white border rounded-xl px-3 py-2 font-bold focus:ring-2 focus:ring-purple-500 outline-none ${subject.day2.urineDensity > 1.025 ? 'border-red-300 text-red-600' : 'border-gray-200'}`}
+                             placeholder="1.020"
+                          />
+                          {subject.day2.urineDensity > 1.025 && <span className="text-[10px] text-red-500 font-bold mt-1 block">Hydratation insuffisante</span>}
+                       </div>
+
+                       <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Douleur Squat</label>
+                          <div className="flex items-center justify-between">
+                             <input 
+                               type="number" max="10"
+                               value={subject.day2.painSquatPre}
+                               onChange={e => updateDay2({ painSquatPre: parseInt(e.target.value) })}
+                               className="w-16 bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:ring-2 focus:ring-purple-500 outline-none"
+                             />
+                             <span className="text-xs font-bold text-gray-400">/ 10</span>
+                          </div>
+                       </div>
                    </div>
 
-                   <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Densité Urine</label>
-                      <input 
-                         type="number" step="0.001"
-                         value={subject.day2.urineDensity || ''}
-                         onChange={e => updateDay2({ urineDensity: parseFloat(e.target.value) })}
-                         className={`w-full bg-white border rounded-xl px-3 py-2 font-bold focus:ring-2 focus:ring-purple-500 outline-none ${subject.day2.urineDensity > 1.025 ? 'border-red-300 text-red-600' : 'border-gray-200'}`}
-                         placeholder="1.020"
-                      />
-                      {subject.day2.urineDensity > 1.025 && <span className="text-[10px] text-red-500 font-bold mt-1 block">Hydratation insuffisante</span>}
-                   </div>
-
-                   <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Douleur Squat</label>
-                      <div className="flex items-center justify-between">
-                         <input 
-                           type="number" max="10"
-                           value={subject.day2.painSquatPre}
-                           onChange={e => updateDay2({ painSquatPre: parseInt(e.target.value) })}
-                           className="w-16 bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:ring-2 focus:ring-purple-500 outline-none"
-                         />
-                         <span className="text-xs font-bold text-gray-400">/ 10</span>
-                      </div>
-                   </div>
-
-                   <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
+                   <div className="lg:col-span-6 bg-slate-50 p-5 rounded-3xl border border-slate-200">
                       <label className="text-xs font-bold text-gray-400 uppercase block mb-2">Physio Pre (T2)</label>
                       <div className="space-y-4">
                          <MetricsInputGroup 
@@ -1443,7 +1622,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                       </div>
                    </div>
 
-                   <div className="bg-purple-50 p-5 rounded-3xl border border-purple-100 flex flex-col justify-center">
+                   <div className="lg:col-span-3 bg-purple-50 p-5 rounded-3xl border border-purple-100 flex flex-col justify-center">
                       <label className="text-xs font-bold text-purple-400 uppercase block text-center mb-2">CMJ T2</label>
                       <div className="text-center">
                          <div className="text-3xl font-bold text-purple-700 tracking-tight mb-2">
@@ -1486,39 +1665,93 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                      </div>
                   </div>
 
-                  {/* Moxy 40-min Upload */}
-                  <div className="relative z-10 mt-8 pt-8 border-t border-slate-700">
-                     <div className="flex items-center justify-between">
-                        <div>
-                           <h4 className="text-sm font-bold text-slate-300 mb-1">Enregistrement Moxy (40 min)</h4>
-                           <p className="text-xs text-slate-500">Importez le fichier CSV complet de la séance pour calculer la cinétique (pente et delta).</p>
+                     {/* Moxy 40-min Upload */}
+                     <div className="relative z-10 mt-8 pt-8 border-t border-slate-700">
+                        <div className="flex items-center justify-between mb-4">
+                           <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                 <h4 className="text-sm font-bold text-slate-300">Enregistrement Moxy (40 min)</h4>
+                                 {(subject.day2.treatmentMoxy || (subject.day2.treatmentTimeSeries && subject.day2.treatmentTimeSeries.some(pt => pt.smo2 !== undefined))) && (
+                                    <span className="flex items-center gap-1 text-[10px] font-bold bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                                       <Check className="w-3 h-3" /> Importé ({subject.day2.treatmentTimeSeries?.filter(pt => pt.smo2 !== undefined).length || 0} pts)
+                                    </span>
+                                 )}
+                              </div>
+                              <p className="text-xs text-slate-500">Importez le fichier CSV complet de la séance pour calculer la cinétique (pente et delta).</p>
+                           </div>
+                           <label className="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors">
+                              <FileUp className="w-4 h-4" />
+                              {(subject.day2.treatmentMoxy || (subject.day2.treatmentTimeSeries && subject.day2.treatmentTimeSeries.some(pt => pt.smo2 !== undefined))) ? 'Remplacer CSV' : 'Importer Moxy CSV'}
+                              <input 
+                                 type="file" 
+                                 accept=".csv" 
+                                 className="hidden" 
+                                 onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                       const text = ev.target?.result as string;
+                                       const data = parseTreatmentMoxyCSV(text);
+                                       const timeSeries = parseMoxyTimeSeries(text);
+                                       
+                                       if (data || timeSeries.length > 0) {
+                                          const merged = mergeTimeSeries(subject.day2.treatmentTimeSeries || [], timeSeries);
+                                          updateDay2({ 
+                                             ...(data ? { treatmentMoxy: data } : {}), 
+                                             treatmentTimeSeries: merged 
+                                          });
+                                       } else {
+                                          alert("Impossible de lire les données du fichier Moxy 40 min.");
+                                       }
+                                    };
+                                    reader.readAsText(file);
+                                    e.target.value = '';
+                                 }}
+                              />
+                           </label>
                         </div>
-                        <label className="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors">
-                           <FileUp className="w-4 h-4" />
-                           Importer CSV
-                           <input 
-                              type="file" 
-                              accept=".csv" 
-                              className="hidden" 
-                              onChange={(e) => {
-                                 const file = e.target.files?.[0];
-                                 if (!file) return;
-                                 const reader = new FileReader();
-                                 reader.onload = (ev) => {
-                                    const text = ev.target?.result as string;
-                                    const data = parseTreatmentMoxyCSV(text);
-                                    if (data) {
-                                       updateDay2({ treatmentMoxy: data });
-                                    } else {
-                                       alert("Impossible de lire les données du fichier Moxy 40 min.");
-                                    }
-                                 };
-                                 reader.readAsText(file);
-                                 e.target.value = '';
-                              }}
-                           />
-                        </label>
-                     </div>
+
+                        <div className="flex items-center justify-between">
+                           <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                 <h4 className="text-sm font-bold text-slate-300">Enregistrement Elite HRV / Polar (40 min)</h4>
+                                 {subject.day2.treatmentTimeSeries?.some(pt => pt.hr !== undefined) && (
+                                    <span className="flex items-center gap-1 text-[10px] font-bold bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                                       <Check className="w-3 h-3" /> Importé ({subject.day2.treatmentTimeSeries?.filter(pt => pt.hr !== undefined).length || 0} pts)
+                                    </span>
+                                 )}
+                              </div>
+                              <p className="text-xs text-slate-500">Importez le fichier brut (intervalles R-R) pour la cinétique cardiaque.</p>
+                           </div>
+                           <label className="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors">
+                              <FileUp className="w-4 h-4" />
+                              {subject.day2.treatmentTimeSeries?.some(pt => pt.hr !== undefined) ? 'Remplacer HRV' : 'Importer HRV CSV/TXT'}
+                              <input 
+                                 type="file" 
+                                 accept=".csv,.txt" 
+                                 className="hidden" 
+                                 onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                       const text = ev.target?.result as string;
+                                       const timeSeries = parseEliteHRVTimeSeries(text);
+                                       
+                                       if (timeSeries.length > 0) {
+                                          const merged = mergeTimeSeries(subject.day2.treatmentTimeSeries || [], timeSeries);
+                                          updateDay2({ treatmentTimeSeries: merged });
+                                       } else {
+                                          alert("Impossible de lire les intervalles R-R du fichier.");
+                                       }
+                                    };
+                                    reader.readAsText(file);
+                                    e.target.value = '';
+                                 }}
+                              />
+                           </label>
+                        </div>
                      
                      {subject.day2.treatmentMoxy && (
                         <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1552,8 +1785,8 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                    <h3 className="text-xl font-bold text-medical-text">Récupération (T3)</h3>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                   <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                   <div className="lg:col-span-6 bg-slate-50 p-6 rounded-3xl border border-slate-200">
                       <label className="block text-xs font-bold text-gray-400 uppercase mb-4">Gain Physiologique (T3)</label>
                       <div className="space-y-4">
                          <MetricsInputGroup 
@@ -1597,7 +1830,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                       </div>
                    </div>
 
-                   <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                   <div className="lg:col-span-3 bg-slate-50 p-6 rounded-3xl border border-slate-200">
                       <label className="block text-xs font-bold text-gray-400 uppercase mb-4">Ressenti Douleur</label>
                       <div className="mb-4">
                          <span className="text-sm font-bold text-gray-500">Delta Douleur (Post - Pre)</span>
@@ -1611,7 +1844,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                       </div>
                    </div>
 
-                   <div className="bg-green-50 p-6 rounded-3xl border border-green-100 flex flex-col justify-center">
+                   <div className="lg:col-span-3 bg-green-50 p-6 rounded-3xl border border-green-100 flex flex-col justify-center">
                       <div className="text-center">
                         <label className="block text-xs font-bold text-green-500 uppercase mb-2">Performance T3</label>
                         <h4 className="text-lg font-bold text-green-900">CMJ Récupération</h4>

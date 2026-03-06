@@ -283,6 +283,53 @@ export const Dashboard: React.FC<Props> = ({ subjects, language }) => {
     }
   ];
 
+  // 12. Time Series Data (40-min Treatment)
+  const timeSeriesData = React.useMemo(() => {
+      const buckets = new Map<number, { 
+          time: number, 
+          audioSmo2: number[], audioThb: number[], audioHr: number[], audioRmssd: number[],
+          placeboSmo2: number[], placeboThb: number[], placeboHr: number[], placeboRmssd: number[]
+      }>();
+
+      subjects.forEach(sub => {
+          if (!sub.day2?.treatmentTimeSeries) return;
+          const isAudio = sub.group === 'AUDIOVITALITY';
+          
+          sub.day2.treatmentTimeSeries.forEach(pt => {
+              if (!buckets.has(pt.time)) {
+                  buckets.set(pt.time, { time: pt.time, audioSmo2: [], audioThb: [], audioHr: [], audioRmssd: [], placeboSmo2: [], placeboThb: [], placeboHr: [], placeboRmssd: [] });
+              }
+              const b = buckets.get(pt.time)!;
+              if (isAudio) {
+                  if (pt.smo2 !== undefined) b.audioSmo2.push(pt.smo2);
+                  if (pt.thb !== undefined) b.audioThb.push(pt.thb);
+                  if (pt.hr !== undefined) b.audioHr.push(pt.hr);
+                  if (pt.rmssd !== undefined) b.audioRmssd.push(pt.rmssd);
+              } else {
+                  if (pt.smo2 !== undefined) b.placeboSmo2.push(pt.smo2);
+                  if (pt.thb !== undefined) b.placeboThb.push(pt.thb);
+                  if (pt.hr !== undefined) b.placeboHr.push(pt.hr);
+                  if (pt.rmssd !== undefined) b.placeboRmssd.push(pt.rmssd);
+              }
+          });
+      });
+
+      const avg = (arr: number[]) => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+
+      return Array.from(buckets.values()).sort((a,b) => a.time - b.time).map(b => ({
+          time: b.time,
+          timeLabel: `${Math.floor(b.time / 60)}:${(b.time % 60).toString().padStart(2, '0')}`,
+          audioSmo2: avg(b.audioSmo2),
+          audioThb: avg(b.audioThb),
+          audioHr: avg(b.audioHr),
+          audioRmssd: avg(b.audioRmssd),
+          placeboSmo2: avg(b.placeboSmo2),
+          placeboThb: avg(b.placeboThb),
+          placeboHr: avg(b.placeboHr),
+          placeboRmssd: avg(b.placeboRmssd),
+      }));
+  }, [subjects]);
+
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom duration-500">
       
@@ -356,6 +403,88 @@ export const Dashboard: React.FC<Props> = ({ subjects, language }) => {
       </div>
 
       {/* Main Charts Area */}
+      {/* Cinétique du Traitement (40 min) */}
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col">
+         <div className="mb-6 flex justify-between items-start">
+            <div>
+               <h3 className="font-bold text-xl text-medical-text">Cinétique du Traitement (40 min)</h3>
+               <p className="text-sm text-gray-400 font-medium mt-1">Évolution de l'oxygénation (SmO2/THb) et de la réponse cardiaque (HR/RMSSD)</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl px-4 py-2 flex gap-4">
+               <div className="flex items-center text-xs font-bold text-gray-500">
+                  <span className="w-2 h-2 rounded-full bg-slate-400 mr-2"></span> Contrôle
+               </div>
+               <div className="flex items-center text-xs font-bold text-medical-bronze">
+                  <span className="w-2 h-2 rounded-full bg-medical-bronze mr-2"></span> AudioVitality
+               </div>
+            </div>
+         </div>
+         
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* NIRS Chart */}
+            <div className="h-[350px] w-full">
+               <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 text-center">Oxygénation Musculaire (SmO2 %)</h4>
+               <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={timeSeriesData}>
+                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                     <XAxis 
+                        dataKey="timeLabel" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fill: '#94A3B8', fontSize: 10}} 
+                        interval="preserveStartEnd"
+                        minTickGap={30}
+                     />
+                     <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        domain={['auto', 'auto']}
+                        tick={{fill: '#94A3B8', fontSize: 10}} 
+                        dx={-10}
+                     />
+                     <Tooltip 
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}
+                        labelStyle={{ fontWeight: 'bold', color: '#1E293B', marginBottom: '8px' }}
+                     />
+                     <Line type="monotone" dataKey="audioSmo2" name="SmO2 AudioVitality" stroke="#C5A059" strokeWidth={3} dot={false} activeDot={{r: 6, fill: '#C5A059', stroke: '#fff', strokeWidth: 2}} />
+                     <Line type="monotone" dataKey="placeboSmo2" name="SmO2 Contrôle" stroke="#94A3B8" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{r: 6, fill: '#94A3B8', stroke: '#fff', strokeWidth: 2}} />
+                  </LineChart>
+               </ResponsiveContainer>
+            </div>
+
+            {/* HRV Chart */}
+            <div className="h-[350px] w-full">
+               <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 text-center">Réponse Parasympathique (RMSSD ms)</h4>
+               <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={timeSeriesData}>
+                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                     <XAxis 
+                        dataKey="timeLabel" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fill: '#94A3B8', fontSize: 10}} 
+                        interval="preserveStartEnd"
+                        minTickGap={30}
+                     />
+                     <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        domain={['auto', 'auto']}
+                        tick={{fill: '#94A3B8', fontSize: 10}} 
+                        dx={-10}
+                     />
+                     <Tooltip 
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}
+                        labelStyle={{ fontWeight: 'bold', color: '#1E293B', marginBottom: '8px' }}
+                     />
+                     <Line type="monotone" dataKey="audioRmssd" name="RMSSD AudioVitality" stroke="#3B82F6" strokeWidth={3} dot={false} activeDot={{r: 6, fill: '#3B82F6', stroke: '#fff', strokeWidth: 2}} />
+                     <Line type="monotone" dataKey="placeboRmssd" name="RMSSD Contrôle" stroke="#94A3B8" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{r: 6, fill: '#94A3B8', stroke: '#fff', strokeWidth: 2}} />
+                  </LineChart>
+               </ResponsiveContainer>
+            </div>
+         </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* CMJ Chart - Scientific Look */}

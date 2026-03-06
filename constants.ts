@@ -34,6 +34,7 @@ export const INITIAL_FOLLOW_UP: FollowUpData = {
 export const INITIAL_DAY0: Day0Data = {
   completed: false,
   date: '',
+  time: '',
   hydrationCheck: false,
   t0: { ...EMPTY_METRICS },
   biaInitial: { r: 0, xc: 0, pha: 0 },
@@ -50,6 +51,7 @@ export const INITIAL_DAY0: Day0Data = {
 export const INITIAL_DAY1: Day1Data = {
   completed: false,
   date: '',
+  time: '',
   evaPain: 0,
   sleepQuality: 0,
   t24h: { ...EMPTY_METRICS },
@@ -58,6 +60,7 @@ export const INITIAL_DAY1: Day1Data = {
 export const INITIAL_DAY2: Day2Data = {
   completed: false,
   date: '',
+  time: '',
   sleepQuality: 0,
   urineDensity: 0,
   painSquatPre: 0,

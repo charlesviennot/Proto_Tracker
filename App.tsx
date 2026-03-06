@@ -4,9 +4,12 @@ import { INITIAL_DAY0, INITIAL_DAY1, INITIAL_DAY2, INITIAL_SCREENING, INITIAL_FO
 import { SubjectList } from './components/SubjectList';
 import { ProtocolWizard } from './components/ProtocolWizard';
 import { Dashboard } from './components/Dashboard';
+import { Calendar } from './components/Calendar';
+import { DataHub } from './components/DataHub';
+import { PatientProfile } from './components/PatientProfile';
 import { Button } from './components/Button';
 import { exportSubjectsToExcel } from './services/excelService';
-import { LayoutDashboard, Users, Zap, Download, Stethoscope, Save, Upload, Wand2, Globe, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Users, Zap, Download, Stethoscope, Save, Upload, Wand2, Globe, Loader2, Calendar as CalendarIcon, Database } from 'lucide-react';
 import { t } from './i18n';
 import { db } from './firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -113,7 +116,7 @@ export default function App() {
   }, []);
 
   // --- Actions ---
-  const addSubject = async (name: string, group: Group) => {
+  const addSubject = async (name: string, group: Group, schedule?: { day0Date: string, day0Time: string, day1Date: string, day1Time: string, day2Date: string, day2Time: string }) => {
     const newSubject: Subject = {
       id: crypto.randomUUID(),
       code: `SUB-${String(state.subjects.length + 1).padStart(3, '0')}`,
@@ -123,9 +126,9 @@ export default function App() {
       notes: '',
       demographics: { ...INITIAL_DEMOGRAPHICS },
       screening: { ...INITIAL_SCREENING },
-      day0: { ...INITIAL_DAY0, dropJumps: { ...INITIAL_DAY0.dropJumps, sets: Array(10).fill({ reps: 10, restTime: 60, completed: false }) } },
-      day1: { ...INITIAL_DAY1 },
-      day2: { ...INITIAL_DAY2 },
+      day0: { ...INITIAL_DAY0, date: schedule?.day0Date || '', time: schedule?.day0Time || '', dropJumps: { ...INITIAL_DAY0.dropJumps, sets: Array(10).fill({ reps: 10, restTime: 60, completed: false }) } },
+      day1: { ...INITIAL_DAY1, date: schedule?.day1Date || '', time: schedule?.day1Time || '' },
+      day2: { ...INITIAL_DAY2, date: schedule?.day2Date || '', time: schedule?.day2Time || '' },
       followUp: { ...INITIAL_FOLLOW_UP },
     };
     
@@ -351,12 +354,46 @@ export default function App() {
       return <Dashboard subjects={state.subjects} language={state.language || 'fr'} />;
     }
 
+    if (state.view === 'CALENDAR') {
+      return (
+        <Calendar 
+          subjects={state.subjects} 
+          onSelectSubject={(id) => setState(prev => ({ ...prev, currentSubjectId: id, view: 'PROTOCOL' }))}
+          language={state.language || 'fr'}
+        />
+      );
+    }
+
+    if (state.view === 'DATA_HUB') {
+      return (
+        <DataHub 
+          subjects={state.subjects}
+          language={state.language || 'fr'}
+        />
+      );
+    }
+
+    if (state.view === 'PROFILE' && state.currentSubjectId) {
+      const subject = state.subjects.find(s => s.id === state.currentSubjectId);
+      if (subject) {
+        return (
+          <PatientProfile 
+            subject={subject}
+            onBack={() => setState(prev => ({ ...prev, view: 'LIST', currentSubjectId: null }))}
+            language={state.language || 'fr'}
+          />
+        );
+      }
+    }
+
     return (
       <SubjectList 
         subjects={state.subjects}
         onSelect={handleSelectSubject}
+        onViewProfile={(id) => setState(prev => ({ ...prev, currentSubjectId: id, view: 'PROFILE' }))}
         onAdd={addSubject}
         onDelete={deleteSubject}
+        onUpdateSubject={updateSubject}
         onLoadExampleData={loadExampleData}
         language={state.language || 'fr'}
       />
@@ -383,7 +420,7 @@ export default function App() {
       />
       
       {/* Premium Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)]">
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] print:hidden">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-24">
             {/* Brand Logo Area */}
@@ -467,8 +504,8 @@ export default function App() {
       </main>
 
       {/* Mobile Navigation (Floating Pill) */}
-      {state.view !== 'PROTOCOL' && (
-        <nav className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-lg rounded-full shadow-2xl shadow-slate-200 border border-white/50 p-2 flex items-center gap-1 z-40 transition-transform animate-in slide-in-from-bottom-10 duration-500">
+      {state.view !== 'PROTOCOL' && state.view !== 'PROFILE' && (
+        <nav className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-lg rounded-full shadow-2xl shadow-slate-200 border border-white/50 p-2 flex items-center gap-1 z-40 transition-transform animate-in slide-in-from-bottom-10 duration-500 print:hidden">
            <button 
              onClick={() => setState(p => ({...p, view: 'LIST'}))}
              className={`flex items-center px-6 py-3 rounded-full font-bold text-sm transition-all duration-300 ${state.view === 'LIST' ? 'bg-medical-text text-white shadow-lg shadow-slate-900/20' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
@@ -476,10 +513,22 @@ export default function App() {
              <Users className="w-4 h-4 mr-2" /> Sujets
            </button>
            <button 
+             onClick={() => setState(p => ({...p, view: 'CALENDAR'}))}
+             className={`flex items-center px-6 py-3 rounded-full font-bold text-sm transition-all duration-300 ${state.view === 'CALENDAR' ? 'bg-medical-blue text-white shadow-lg shadow-blue-500/30' : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'}`}
+           >
+             <CalendarIcon className="w-4 h-4 mr-2" /> Planning
+           </button>
+           <button 
              onClick={() => setState(p => ({...p, view: 'DASHBOARD'}))}
              className={`flex items-center px-6 py-3 rounded-full font-bold text-sm transition-all duration-300 ${state.view === 'DASHBOARD' ? 'bg-medical-blue text-white shadow-lg shadow-blue-500/30' : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'}`}
            >
              <LayoutDashboard className="w-4 h-4 mr-2" /> Analyse
+           </button>
+           <button 
+             onClick={() => setState(p => ({...p, view: 'DATA_HUB'}))}
+             className={`flex items-center px-6 py-3 rounded-full font-bold text-sm transition-all duration-300 ${state.view === 'DATA_HUB' ? 'bg-medical-bronze text-white shadow-lg shadow-yellow-900/30' : 'text-gray-500 hover:bg-yellow-50 hover:text-medical-bronze'}`}
+           >
+             <Database className="w-4 h-4 mr-2" /> Data Hub
            </button>
         </nav>
       )}

@@ -13,9 +13,10 @@ interface Props {
   onUpdateSubject?: (updatedSubject: Subject) => void;
   onLoadExampleData: () => void;
   language: Language;
+  blindMode: boolean;
 }
 
-export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onViewProfile, onAdd, onDelete, onUpdateSubject, onLoadExampleData, language }) => {
+export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onViewProfile, onAdd, onDelete, onUpdateSubject, onLoadExampleData, language, blindMode }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
@@ -392,7 +393,9 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onViewProfile
                  <User className="w-7 h-7" />
                </div>
                <div>
-                 <h4 className="text-xl font-bold text-medical-text group-hover:text-medical-bronze transition-colors">{subject.name}</h4>
+                 <h4 className="text-xl font-bold text-medical-text group-hover:text-medical-bronze transition-colors">
+                   {blindMode ? 'Sujet Anonymisé' : subject.name}
+                 </h4>
                  <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
                    <span className="font-mono font-medium text-gray-400">{subject.code}</span>
                    <span className="w-1 h-1 bg-gray-300 rounded-full"></span>

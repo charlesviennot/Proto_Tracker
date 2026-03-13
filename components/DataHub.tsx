@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { Subject, Language } from '../types';
 import { Button } from './Button';
-import { CheckCircle, XCircle, Download, Database, Table as TableIcon } from 'lucide-react';
-import { exportSubjectsToExcel } from '../services/excelService';
+import { CheckCircle, XCircle, Download, Database, Table as TableIcon, FileText } from 'lucide-react';
+import { exportSubjectsToExcel, exportSubjectsToCSV } from '../services/excelService';
 
 interface Props {
   subjects: Subject[];
@@ -35,7 +35,8 @@ export const DataHub: React.FC<Props> = ({ subjects, language }) => {
       'J0 SmO2 Base': s.day0.t0?.nirs || '-',
       'J0 THb Base': s.day0.t0?.thb || '-',
       'J0 CMJ Base': s.day0.t0?.cmj || '-',
-      'J0 HRV Base': s.day0.t0?.hrvRmssd || '-',
+      'J0 HRV RMSSD Base': s.day0.t0?.hrvRmssd || '-',
+      'J0 HRV SDNN Base': s.day0.t0?.hrvSdnn || '-',
       'J1 EVA': s.day1.evaPain || '-',
       'J2 SmO2 Pre': s.day2.t2?.nirs || '-',
       'J2 THb Pre': s.day2.t2?.thb || '-',
@@ -43,7 +44,8 @@ export const DataHub: React.FC<Props> = ({ subjects, language }) => {
       'J2 SmO2 Post': s.day2.t3?.nirs || '-',
       'J2 THb Post': s.day2.t3?.thb || '-',
       'J2 CMJ Recup': s.day2.t3?.cmj || '-',
-      'J2 HRV Final': s.day2.t3?.hrvRmssd || '-',
+      'J2 HRV RMSSD Final': s.day2.t3?.hrvRmssd || '-',
+      'J2 HRV SDNN Final': s.day2.t3?.hrvSdnn || '-',
     }));
   }, [subjects]);
 
@@ -57,10 +59,16 @@ export const DataHub: React.FC<Props> = ({ subjects, language }) => {
           </h2>
           <p className="text-gray-500 text-lg">Résumé des données collectées et aperçu du fichier d'export final.</p>
         </div>
-        <Button onClick={() => exportSubjectsToExcel(subjects)} variant="primary" className="shadow-lg shadow-medical-bronze/20">
-          <Download className="w-5 h-5 mr-2" />
-          Télécharger l'Excel complet
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={() => exportSubjectsToCSV(subjects)} variant="secondary" className="shadow-sm">
+            <FileText className="w-5 h-5 mr-2" />
+            Exporter CSV
+          </Button>
+          <Button onClick={() => exportSubjectsToExcel(subjects)} variant="primary" className="shadow-lg shadow-medical-bronze/20">
+            <Download className="w-5 h-5 mr-2" />
+            Télécharger Excel
+          </Button>
+        </div>
       </div>
 
       {/* Completion Matrix */}

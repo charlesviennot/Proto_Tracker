@@ -522,7 +522,7 @@ export default function App() {
              onClick={() => setState(p => ({...p, view: 'DASHBOARD'}))}
              className={`flex items-center px-6 py-3 rounded-full font-bold text-sm transition-all duration-300 ${state.view === 'DASHBOARD' ? 'bg-medical-blue text-white shadow-lg shadow-blue-500/30' : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'}`}
            >
-             <LayoutDashboard className="w-4 h-4 mr-2" /> Analyse
+             <LayoutDashboard className="w-4 h-4 mr-2" /> Statistiques
            </button>
            <button 
              onClick={() => setState(p => ({...p, view: 'DATA_HUB'}))}

@@ -8,9 +8,10 @@ interface Props {
   subject: Subject;
   onBack: () => void;
   language: Language;
+  blindMode: boolean;
 }
 
-export const PatientProfile: React.FC<Props> = ({ subject, onBack, language }) => {
+export const PatientProfile: React.FC<Props> = ({ subject, onBack, language, blindMode }) => {
   const handlePrint = () => {
     window.print();
   };
@@ -37,10 +38,10 @@ export const PatientProfile: React.FC<Props> = ({ subject, onBack, language }) =
   ].filter(d => d.rmssd > 0);
 
   const stiffnessData = [
-    { phase: 'J0 Base', angle: subject.day0.quadricepsStiffnessInitial || 0 },
-    { phase: 'J2 Pre', angle: subject.day2.quadricepsStiffnessPre || 0 },
-    { phase: 'J2 Post', angle: subject.day2.quadricepsStiffnessPost || 0 },
-  ].filter(d => d.angle > 0);
+    { phase: 'J0 Base', distance: subject.day0.quadricepsStiffnessInitial || 0 },
+    { phase: 'J2 Pre', distance: subject.day2.quadricepsStiffnessPre || 0 },
+    { phase: 'J2 Post', distance: subject.day2.quadricepsStiffnessPost || 0 },
+  ].filter(d => d.distance > 0);
 
   const biaData = [
     { phase: 'J0 Base', r: subject.day0.biaInitial.r || 0, xc: subject.day0.biaInitial.xc || 0, pha: subject.day0.biaInitial.pha || 0 },
@@ -81,7 +82,9 @@ export const PatientProfile: React.FC<Props> = ({ subject, onBack, language }) =
             {subject.code.replace('SUB-', '')}
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-medical-text">{subject.name}</h2>
+            <h2 className="text-2xl font-bold text-medical-text">
+              {blindMode ? 'Sujet Anonymisé' : subject.name}
+            </h2>
             <div className="flex items-center gap-3 text-gray-500 mt-1">
               <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-sm">{subject.code}</span>
               <span>•</span>
@@ -191,7 +194,7 @@ export const PatientProfile: React.FC<Props> = ({ subject, onBack, language }) =
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 print:shadow-none print:border-gray-300 print:break-inside-avoid">
           <h3 className="text-lg font-bold text-medical-text mb-6 flex items-center gap-2">
             <Zap className="w-5 h-5 text-amber-500" />
-            Raideur Quadriceps (Angle)
+            Raideur Quadriceps (Distance)
           </h3>
           {stiffnessData.length > 0 ? (
             <div className="h-64">
@@ -201,10 +204,10 @@ export const PatientProfile: React.FC<Props> = ({ subject, onBack, language }) =
                   <XAxis dataKey="phase" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} reversed />
                   <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                  <Bar dataKey="angle" fill="#f59e0b" radius={[0, 0, 4, 4]} name="Angle (°)" barSize={40} isAnimationActive={false} />
+                  <Bar dataKey="distance" fill="#f59e0b" radius={[0, 0, 4, 4]} name="Distance (cm)" barSize={40} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
-              <div className="text-center text-xs text-gray-400 mt-2">Note: Un angle plus faible indique une meilleure souplesse (axe inversé).</div>
+              <div className="text-center text-xs text-gray-400 mt-2">Note: Une distance plus faible indique une meilleure souplesse (axe inversé).</div>
             </div>
           ) : (
             <div className="h-64 flex items-center justify-center text-gray-400 bg-gray-50 rounded-xl">Données insuffisantes</div>

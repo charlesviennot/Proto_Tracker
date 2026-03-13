@@ -334,7 +334,7 @@ export const Dashboard: React.FC<Props> = ({ subjects, language }) => {
     <div className="space-y-8 animate-in slide-in-from-bottom duration-500">
       
       {/* KPI Cards - Glassmorphic Medical Style */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
          {/* Total Cohort */}
          <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden group hover:shadow-md transition-all">
             <div className="absolute right-0 top-0 p-4 opacity-10 transform translate-x-2 -translate-y-2">
@@ -348,6 +348,24 @@ export const Dashboard: React.FC<Props> = ({ subjects, language }) => {
                </div>
                <div className="mt-4 flex items-center text-xs font-medium text-medical-blue bg-blue-50 px-3 py-1 rounded-full w-fit">
                   <Activity className="w-3 h-3 mr-1" /> {completedCount} complets
+               </div>
+            </div>
+         </div>
+
+         {/* Completion Rate */}
+         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden group hover:shadow-md transition-all">
+            <div className="absolute right-0 top-0 p-4 opacity-10 transform translate-x-2 -translate-y-2">
+               <CheckCircle2 className="w-24 h-24 text-emerald-500" />
+            </div>
+            <div className="relative z-10">
+               <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Complétion J1</p>
+               <div className="flex items-baseline space-x-2">
+                  <span className="text-4xl font-bold text-emerald-600">
+                     {subjects.length > 0 ? Math.round((subjects.filter(s => s.day1.completed).length / subjects.length) * 100) : 0}%
+                  </span>
+               </div>
+               <div className="mt-4 flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full w-fit">
+                  {subjects.filter(s => s.day1.completed).length} / {subjects.length} terminés
                </div>
             </div>
          </div>
@@ -952,7 +970,7 @@ export const Dashboard: React.FC<Props> = ({ subjects, language }) => {
         <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col h-[450px]">
           <div className="mb-6">
             <h3 className="font-bold text-xl text-medical-text">Gain de Souplesse Musculaire</h3>
-            <p className="text-sm text-gray-400 font-medium mt-1">Baisse de la raideur (Pré - Post) J2 (Myoton)</p>
+            <p className="text-sm text-gray-400 font-medium mt-1">Baisse de la raideur (Pré - Post) J2 (Distance talon-fesse)</p>
           </div>
           
           <div className="flex-1 w-full min-h-0">
@@ -970,14 +988,14 @@ export const Dashboard: React.FC<Props> = ({ subjects, language }) => {
                      axisLine={false} 
                      tickLine={false} 
                      tick={{fill: '#94A3B8', fontSize: 12}} 
-                     unit="°" 
+                     unit=" cm" 
                   />
                   <Tooltip 
                     cursor={{fill: '#F8FAFC'}}
                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}
-                    formatter={(value: number) => [`${value.toFixed(1)}°`, 'Baisse raideur']}
+                    formatter={(value: number) => [`${value.toFixed(1)} cm`, 'Baisse raideur']}
                   />
-                  <Bar dataKey="gain" name="Baisse Raideur (°)" radius={[16, 16, 16, 16]}>
+                  <Bar dataKey="gain" name="Baisse Raideur (cm)" radius={[16, 16, 16, 16]}>
                     {myotonGainData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}

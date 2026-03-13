@@ -23,6 +23,7 @@ interface CalendarProps {
   subjects: Subject[];
   onSelectSubject: (id: string, targetDay?: number) => void;
   language: 'fr' | 'en';
+  blindMode?: boolean;
 }
 
 type ViewMode = 'month' | 'week';
@@ -39,7 +40,7 @@ interface ProtocolEvent {
   status: 'completed' | 'pending' | 'missed';
 }
 
-export function Calendar({ subjects, onSelectSubject, language }: CalendarProps) {
+export function Calendar({ subjects, onSelectSubject, language, blindMode }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [copied, setCopied] = useState(false);
@@ -60,6 +61,7 @@ export function Calendar({ subjects, onSelectSubject, language }: CalendarProps)
     today.setHours(0, 0, 0, 0);
 
     subjects.forEach(subject => {
+      const displayName = blindMode ? 'Sujet Anonymisé' : subject.name;
       // Day 0 (J1)
       if (subject.day0.date) {
         const d0Date = parseISO(subject.day0.date);
@@ -70,7 +72,7 @@ export function Calendar({ subjects, onSelectSubject, language }: CalendarProps)
         allEvents.push({
           id: `${subject.id}-d0`,
           subjectId: subject.id,
-          subjectName: subject.name,
+          subjectName: displayName,
           subjectCode: subject.code,
           group: subject.group,
           date: d0Date,
@@ -88,7 +90,7 @@ export function Calendar({ subjects, onSelectSubject, language }: CalendarProps)
         allEvents.push({
           id: `${subject.id}-d1`,
           subjectId: subject.id,
-          subjectName: subject.name,
+          subjectName: displayName,
           subjectCode: subject.code,
           group: subject.group,
           date: d1Date,
@@ -106,7 +108,7 @@ export function Calendar({ subjects, onSelectSubject, language }: CalendarProps)
         allEvents.push({
           id: `${subject.id}-d2`,
           subjectId: subject.id,
-          subjectName: subject.name,
+          subjectName: displayName,
           subjectCode: subject.code,
           group: subject.group,
           date: d2Date,
@@ -253,74 +255,93 @@ export function Calendar({ subjects, onSelectSubject, language }: CalendarProps)
       </div>
 
       {/* Calendar Grid */}
-      <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
-        <div className="grid grid-cols-7 gap-4 mb-4">
+      <div className="flex-1 flex flex-col p-6 bg-slate-50/30 overflow-hidden">
+        <div className="grid grid-cols-7 gap-2 sm:gap-4 mb-4 shrink-0">
           {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(day => (
             <div key={day} className="text-center text-xs font-bold text-slate-400 uppercase tracking-wider">
-              {day}
+              <span className="hidden sm:inline">{day}</span>
+              <span className="sm:hidden">{day.charAt(0)}</span>
             </div>
           ))}
         </div>
 
-        <div className={`grid grid-cols-7 gap-4 ${viewMode === 'month' ? 'auto-rows-fr' : ''}`}>
-          {daysToDisplay.map((day, idx) => {
-            const dayEvents = getEventsForDay(day);
-            const isCurrentMonth = isSameMonth(day, currentDate);
-            const isTodayDate = isToday(day);
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+          <div className={`grid grid-cols-7 gap-2 sm:gap-4 ${viewMode === 'month' ? 'auto-rows-fr min-h-full' : ''}`}>
+            {daysToDisplay.map((day, idx) => {
+              const dayEvents = getEventsForDay(day);
+              const isCurrentMonth = isSameMonth(day, currentDate);
+              const isTodayDate = isToday(day);
 
-            return (
-              <div 
-                key={day.toISOString()} 
-                className={`
-                  min-h-[120px] rounded-2xl border p-3 flex flex-col transition-all
-                  ${!isCurrentMonth && viewMode === 'month' ? 'opacity-40 bg-slate-50 border-slate-100' : 'bg-white border-slate-200 hover:border-medical-blue/30 hover:shadow-md'}
-                  ${isTodayDate ? 'ring-2 ring-medical-blue ring-offset-2 border-transparent' : ''}
-                `}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <span className={`
-                    text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full
-                    ${isTodayDate ? 'bg-medical-blue text-white' : 'text-slate-700'}
-                  `}>
-                    {format(day, 'd')}
-                  </span>
-                  {dayEvents.length > 0 && (
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {dayEvents.length}
+              return (
+                <div 
+                  key={day.toISOString()} 
+                  className={`
+                    ${viewMode === 'month' ? 'min-h-[100px] sm:min-h-[120px]' : 'min-h-[150px]'} 
+                    rounded-xl sm:rounded-2xl border p-1.5 sm:p-3 flex flex-col transition-all
+                    ${!isCurrentMonth && viewMode === 'month' ? 'opacity-40 bg-slate-50 border-slate-100' : 'bg-white border-slate-200 hover:border-medical-blue/30 hover:shadow-md'}
+                    ${isTodayDate ? 'ring-2 ring-medical-blue ring-offset-1 sm:ring-offset-2 border-transparent' : ''}
+                  `}
+                >
+                  <div className="flex justify-between items-start mb-1 sm:mb-2">
+                    <span className={`
+                      text-xs sm:text-sm font-bold w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full
+                      ${isTodayDate ? 'bg-medical-blue text-white' : 'text-slate-700'}
+                    `}>
+                      {format(day, 'd')}
                     </span>
-                  )}
-                </div>
+                    {dayEvents.length > 0 && (
+                      <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 sm:px-2 py-0.5 rounded-full">
+                        {dayEvents.length}
+                      </span>
+                    )}
+                  </div>
 
-                <div className="flex flex-col gap-1.5 flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                  {dayEvents.map(event => (
-                    <button
-                      key={event.id}
-                      onClick={() => onSelectSubject(event.subjectId, event.dayNumber)}
-                      className={`
-                        text-left p-2 rounded-xl border text-xs group transition-all hover:scale-[1.02]
-                        ${getStatusColor(event.status)}
-                      `}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5 font-bold">
-                          <div className={`w-2 h-2 rounded-full ${getGroupColor(event.group)}`} />
-                          <span className="truncate max-w-[80px]">{event.subjectCode}</span>
-                        </div>
-                        {getStatusIcon(event.status)}
-                      </div>
-                      <div className="flex items-center justify-between opacity-80 mt-1">
-                        <span className="truncate">{event.subjectName}</span>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {event.time && <span className="text-[10px] font-medium bg-white/50 px-1 rounded">{event.time}</span>}
-                          <span className="font-bold bg-white/50 px-1.5 rounded-md">J{event.dayNumber + 1}</span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                  <div className="flex flex-col gap-1 sm:gap-1.5 flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                    {dayEvents.map(event => (
+                      <button
+                        key={event.id}
+                        onClick={() => onSelectSubject(event.subjectId, event.dayNumber)}
+                        className={`
+                          text-left p-1.5 sm:p-2 rounded-lg sm:rounded-xl border text-[10px] sm:text-xs group transition-all hover:scale-[1.02]
+                          ${getStatusColor(event.status)}
+                        `}
+                      >
+                        {viewMode === 'month' ? (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold truncate">{event.subjectCode}</span>
+                              {getStatusIcon(event.status)}
+                            </div>
+                            <div className="flex items-center gap-1 opacity-80">
+                              <span className="font-medium">{event.time || '--:--'}</span>
+                              <span className="font-bold">J{event.dayNumber + 1}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-1.5 font-bold">
+                                <div className={`w-2 h-2 rounded-full ${getGroupColor(event.group)}`} />
+                                <span className="truncate max-w-[80px]">{event.subjectCode}</span>
+                              </div>
+                              {getStatusIcon(event.status)}
+                            </div>
+                            <div className="flex items-center justify-between opacity-80 mt-1">
+                              <span className="truncate">{event.subjectName}</span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {event.time && <span className="text-[10px] font-medium bg-white/50 px-1 rounded">{event.time}</span>}
+                                <span className="font-bold bg-white/50 px-1.5 rounded-md">J{event.dayNumber + 1}</span>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 

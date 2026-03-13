@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Subject, Day0Data, Day1Data, Day2Data, BiaData, ClinicalMetrics, ScreeningData, FollowUpData, Language, Demographics, TreatmentMoxyData } from '../types';
 import { Button } from './Button';
+import { PainScale } from './PainScale';
 import { DropJumpTracker } from './DropJumpTracker';
 import { Save, AlertCircle, Check, Activity, Droplets, Timer, ArrowRight, TrendingDown, TrendingUp, Lock, Upload, FileSpreadsheet, PlayCircle, X, ExternalLink, Calculator, Ruler, Video, Crosshair, Trash2, Rewind, FastForward, PauseCircle, RotateCcw, Zap, Film, FileText, PenTool, Plus, ChevronLeft, Calendar, MoveDiagonal, CheckCircle2, FileUp } from 'lucide-react';
 import { t } from '../i18n';
@@ -14,6 +15,68 @@ interface Props {
   onDelete?: (id: string) => void;
   language: Language;
 }
+
+// --- HRV PARSER (rMSSD & SDNN Calculation) ---
+const parseHRVFile = (fileContent: string): { rmssd: number, sdnn: number } | null => {
+    try {
+        // 1. Parse the file (split by newline, comma, or semicolon)
+        const rawValues = fileContent
+            .split(/[\n\r,;]+/)
+            .map(v => parseFloat(v.trim()))
+            .filter(v => !isNaN(v));
+        
+        if (rawValues.length < 2) return null;
+
+        // 2. Clean the data (Artifact Filter)
+        const cleanedValues: number[] = [];
+        for (let i = 0; i < rawValues.length; i++) {
+            const rr = rawValues[i];
+            
+            // Rule: Remove if < 300ms or > 2000ms
+            if (rr < 300 || rr > 2000) continue;
+            
+            // Rule: Remove if variation > 20% compared to the *previous* R-R interval
+            if (cleanedValues.length > 0) {
+                const prevRR = cleanedValues[cleanedValues.length - 1];
+                const variation = Math.abs(rr - prevRR) / prevRR;
+                if (variation > 0.20) continue;
+            }
+            
+            cleanedValues.push(rr);
+        }
+
+        if (cleanedValues.length < 2) return null;
+
+        // 3. Math (rMSSD)
+        let sumOfSquares = 0;
+        for (let i = 1; i < cleanedValues.length; i++) {
+            const diff = cleanedValues[i] - cleanedValues[i - 1];
+            sumOfSquares += diff * diff;
+        }
+
+        const meanOfSquares = sumOfSquares / (cleanedValues.length - 1);
+        const rmssd = Math.sqrt(meanOfSquares);
+
+        // 4. Math (SDNN)
+        const sumRR = cleanedValues.reduce((acc, val) => acc + val, 0);
+        const meanRR = sumRR / cleanedValues.length;
+        let sumSquaredDiffs = 0;
+        for (let i = 0; i < cleanedValues.length; i++) {
+            const diff = cleanedValues[i] - meanRR;
+            sumSquaredDiffs += diff * diff;
+        }
+        const sdnn = Math.sqrt(sumSquaredDiffs / (cleanedValues.length - 1));
+
+        // Return rounded to 1 decimal
+        return {
+            rmssd: Math.round(rmssd * 10) / 10,
+            sdnn: Math.round(sdnn * 10) / 10
+        };
+    } catch (error) {
+        console.error("Error parsing HRV file:", error);
+        return null;
+    }
+};
 
 // --- MOXY CSV PARSER (Punctual - Last 2 mins) ---
 const parseMoxyCSV = (csvText: string): { smo2: number | null, thb: number | null } => {
@@ -294,6 +357,7 @@ interface MetricsInputProps {
 
 const MetricsInputGroup: React.FC<MetricsInputProps> = ({ metrics, onChange, label, onMeasureCMJ, language }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const hrvFileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -315,6 +379,28 @@ const MetricsInputGroup: React.FC<MetricsInputProps> = ({ metrics, onChange, lab
         // Reset input so the same file can be uploaded again if needed
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
+        }
+    };
+
+    const handleHRVFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result as string;
+            const result = parseHRVFile(text);
+            
+            if (result !== null) {
+                onChange({ ...metrics, hrvRmssd: result.rmssd, hrvSdnn: result.sdnn });
+            } else {
+                alert("Impossible de calculer le rMSSD et SDNN. Vérifiez que le fichier contient bien une liste d'intervalles R-R valides.");
+            }
+        };
+        reader.readAsText(file);
+        
+        if (hrvFileInputRef.current) {
+            hrvFileInputRef.current.value = '';
         }
     };
 
@@ -401,7 +487,23 @@ const MetricsInputGroup: React.FC<MetricsInputProps> = ({ metrics, onChange, lab
 
                 {/* RMSSD */}
                 <div>
-                    <label className="text-[10px] font-bold text-gray-400 block mb-1">HRV RMSSD (ms)</label>
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] font-bold text-gray-400 block">HRV RMSSD (ms)</label>
+                        <button 
+                            onClick={() => hrvFileInputRef.current?.click()}
+                            className="text-[10px] text-medical-blue hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded"
+                            title="Importer fichier R-R (Polar/Elite HRV)"
+                        >
+                            <FileUp className="w-3 h-3" /> R-R
+                        </button>
+                        <input 
+                            type="file" 
+                            accept=".csv,.txt" 
+                            ref={hrvFileInputRef} 
+                            className="hidden" 
+                            onChange={handleHRVFileUpload}
+                        />
+                    </div>
                     <input 
                         type="number" 
                         value={metrics.hrvRmssd || ''}
@@ -1338,7 +1440,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                         {/* New Quad Stiffness Input */}
                         <div>
                             <span className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1 mb-1">
-                                <MoveDiagonal className="w-3 h-3 text-medical-bronze" /> Raideur Quad. (Angle)
+                                <MoveDiagonal className="w-3 h-3 text-medical-bronze" /> Raideur Quad. (Distance)
                             </span>
                              <div className="flex items-center">
                                 <input 
@@ -1348,9 +1450,9 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                                     className="w-24 bg-white border border-gray-200 rounded-xl px-3 py-2 text-lg font-bold text-medical-text focus:ring-2 focus:ring-medical-bronze outline-none"
                                     placeholder="0"
                                 />
-                                <span className="ml-2 text-gray-400 text-xs font-bold">° (Degrés)</span>
+                                <span className="ml-2 text-gray-400 text-xs font-bold">cm</span>
                              </div>
-                             <p className="text-[10px] text-gray-400 mt-1 italic">Mesure inclinomètre (talon-fesse)</p>
+                             <p className="text-[10px] text-gray-400 mt-1 italic">Distance talon-fesse (en cm)</p>
                         </div>
 
                         <BiaInputGroup 
@@ -1474,20 +1576,14 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                           className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-medical-blue outline-none font-bold"
                         />
                      </div>
-
-                      <label className="block text-xs font-bold text-gray-400 uppercase mb-4">Douleur EVA (0-10)</label>
-                      <input 
-                            type="range" 
-                            min="0" max="10" 
-                            value={subject.day1.evaPain}
-                            onChange={e => updateDay1({ evaPain: parseInt(e.target.value) })}
-                            className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-medical-blue mb-6"
-                      />
-                      <div className="flex justify-center mb-8">
-                         <div className="w-24 h-24 rounded-full bg-white border-4 border-medical-blue flex items-center justify-center shadow-lg">
-                            <span className="text-4xl font-bold text-medical-text">{subject.day1.evaPain}</span>
-                         </div>
-                      </div>
+                     
+                     <div className="mb-8">
+                       <PainScale 
+                         label="Douleur EVA (0-10)"
+                         value={subject.day1.evaPain} 
+                         onChange={val => updateDay1({ evaPain: val })} 
+                       />
+                     </div>
 
                       <label className="block text-xs font-bold text-gray-400 uppercase mb-4">Qualité du sommeil (0-10)</label>
                       <input 
@@ -1575,18 +1671,11 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                           {subject.day2.urineDensity > 1.025 && <span className="text-[10px] text-red-500 font-bold mt-1 block">Hydratation insuffisante</span>}
                        </div>
 
-                       <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Douleur Squat</label>
-                          <div className="flex items-center justify-between">
-                             <input 
-                               type="number" max="10"
-                               value={subject.day2.painSquatPre}
-                               onChange={e => updateDay2({ painSquatPre: parseInt(e.target.value) })}
-                               className="w-16 bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:ring-2 focus:ring-purple-500 outline-none"
-                             />
-                             <span className="text-xs font-bold text-gray-400">/ 10</span>
-                          </div>
-                       </div>
+                       <PainScale 
+                         label="Douleur Squat"
+                         value={subject.day2.painSquatPre} 
+                         onChange={val => updateDay2({ painSquatPre: val })} 
+                       />
                    </div>
 
                    <div className="lg:col-span-6 bg-slate-50 p-5 rounded-3xl border border-slate-200">
@@ -1609,7 +1698,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                                 onChange={e => updateDay2({ quadricepsStiffnessPre: parseFloat(e.target.value) })}
                                 className="w-16 bg-white border border-gray-200 rounded-lg px-2 py-1 text-sm text-right font-bold"
                                 />
-                                <span className="text-[10px] text-gray-400 ml-1">°</span>
+                                <span className="text-[10px] text-gray-400 ml-1">cm</span>
                             </div>
                          </div>
                          <BiaInputGroup 
@@ -1808,13 +1897,13 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                                     onChange={e => updateDay2({ quadricepsStiffnessPost: parseFloat(e.target.value) })}
                                     className="w-16 bg-white border border-blue-200 rounded-lg px-2 py-1 text-sm text-right font-bold text-blue-900"
                                     />
-                                    <span className="text-[10px] text-blue-400 ml-1">°</span>
+                                    <span className="text-[10px] text-blue-400 ml-1">cm</span>
                                 </div>
                              </div>
                              {subject.day2.quadricepsStiffnessPre > 0 && subject.day2.quadricepsStiffnessPost > 0 && (
                                  <div className="text-center">
                                      <span className="text-[10px] font-bold text-green-600">
-                                         Gain Mobilité: {(subject.day2.quadricepsStiffnessPre - subject.day2.quadricepsStiffnessPost).toFixed(1)}°
+                                         Gain Mobilité: {(subject.day2.quadricepsStiffnessPre - subject.day2.quadricepsStiffnessPost).toFixed(1)} cm
                                      </span>
                                  </div>
                              )}

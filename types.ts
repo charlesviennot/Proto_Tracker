@@ -33,7 +33,7 @@ export interface Day0Data {
   hydrationCheck: boolean; // 500ml intake
   t0: ClinicalMetrics; // Baseline
   biaInitial: BiaData; // T0 Baseline
-  quadricepsStiffnessInitial: number; // Angle in degrees (lower is better)
+  quadricepsStiffnessInitial: number; // Distance talon-fesse in cm (lower is better)
   dropJumps: DropJumpSession;
   rpePost: number; // 0-10
   t1: ClinicalMetrics; // Post-Exercise
@@ -76,13 +76,13 @@ export interface Day2Data {
   painSquatPre: number; // 0-10
   t2: ClinicalMetrics; // T2 Pre-Session (Check Edema)
   biaPre: BiaData; // T2 Pre-Session (Check Edema)
-  quadricepsStiffnessPre: number; // Angle in degrees (T2)
+  quadricepsStiffnessPre: number; // Distance talon-fesse in cm (T2)
   sessionDuration: number; // minutes (target 40)
   treatmentMoxy?: TreatmentMoxyData; // 40-minute continuous measurement
   treatmentTimeSeries?: TimeSeriesPoint[]; // 40-minute continuous time series data
   t3: ClinicalMetrics; // T3 Post-Session (Check Drainage)
   biaPost: BiaData; // T3 Post-Session (Check Drainage)
-  quadricepsStiffnessPost: number; // Angle in degrees (T3)
+  quadricepsStiffnessPost: number; // Distance talon-fesse in cm (T3)
   painDelta: number; // Calculated or input
 }
 
@@ -131,4 +131,5 @@ export interface AppState {
   view: ViewState;
   fastTrackMode: boolean; // For dev/demo
   language: Language;
+  blindMode: boolean;
 }

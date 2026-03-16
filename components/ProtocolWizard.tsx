@@ -1219,6 +1219,18 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
         {/* Screening Content */}
         {activeTab === 'SCREENING' && (
           <div className="p-8 md:p-12 space-y-12 animate-in zoom-in-95 duration-300">
+             
+             {/* Important Note */}
+             <div className="bg-blue-50 border-l-4 border-medical-blue p-5 rounded-r-2xl shadow-sm flex items-start gap-4">
+                <AlertCircle className="w-6 h-6 text-medical-blue shrink-0 mt-0.5" />
+                <div>
+                   <h4 className="font-bold text-blue-900 text-lg">Information Protocole Important</h4>
+                   <p className="text-blue-800 mt-1">
+                      Veuillez noter que pour le groupe expérimental, le traitement à appliquer lors de la session (J2) est le programme <strong className="font-black text-medical-blue bg-blue-100 px-2 py-0.5 rounded">Audiovitality S20</strong>.
+                   </p>
+                </div>
+             </div>
+
              <section>
                 <div className="flex items-center gap-3 mb-6">
                    <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">1</div>
@@ -1735,7 +1747,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                         <h3 className="text-2xl font-bold mb-2">Session de Traitement</h3>
                         <p className="text-slate-400 max-w-sm">
                            {subject.group === 'AUDIOVITALITY' 
-                             ? 'Protocole : Stimulation basse fréquence (20-100Hz) pour drainage et vascularisation.' 
+                             ? 'Protocole : Programme Audiovitality S20 (Stimulation basse fréquence 20-100Hz pour drainage et vascularisation).' 
                              : 'Protocole : Placebo / Repos passif.'}
                         </p>
                      </div>

@@ -7,9 +7,10 @@ import { Dashboard } from './components/Dashboard';
 import { Calendar } from './components/Calendar';
 import { DataHub } from './components/DataHub';
 import { PatientProfile } from './components/PatientProfile';
+import { ProjectTimeline } from './components/ProjectTimeline';
 import { Button } from './components/Button';
 import { exportSubjectsToExcel } from './services/excelService';
-import { LayoutDashboard, Users, Zap, Download, Stethoscope, Save, Upload, Wand2, Globe, Loader2, Calendar as CalendarIcon, Database } from 'lucide-react';
+import { LayoutDashboard, Users, Zap, Download, Stethoscope, Save, Upload, Wand2, Globe, Loader2, Calendar as CalendarIcon, Database, GitCommit } from 'lucide-react';
 import { t } from './i18n';
 import { db } from './firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -373,6 +374,14 @@ export default function App() {
       );
     }
 
+    if (state.view === 'TIMELINE') {
+      return (
+        <ProjectTimeline 
+          language={state.language || 'fr'}
+        />
+      );
+    }
+
     if (state.view === 'PROFILE' && state.currentSubjectId) {
       const subject = state.subjects.find(s => s.id === state.currentSubjectId);
       if (subject) {
@@ -529,6 +538,12 @@ export default function App() {
              className={`flex items-center px-6 py-3 rounded-full font-bold text-sm transition-all duration-300 ${state.view === 'DATA_HUB' ? 'bg-medical-bronze text-white shadow-lg shadow-yellow-900/30' : 'text-gray-500 hover:bg-yellow-50 hover:text-medical-bronze'}`}
            >
              <Database className="w-4 h-4 mr-2" /> Data Hub
+           </button>
+           <button 
+             onClick={() => setState(p => ({...p, view: 'TIMELINE'}))}
+             className={`flex items-center px-6 py-3 rounded-full font-bold text-sm transition-all duration-300 ${state.view === 'TIMELINE' ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30' : 'text-gray-500 hover:bg-purple-50 hover:text-purple-600'}`}
+           >
+             <GitCommit className="w-4 h-4 mr-2" /> Timeline
            </button>
         </nav>
       )}

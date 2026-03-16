@@ -122,8 +122,28 @@ export interface Subject {
   followUp: FollowUpData;
 }
 
-export type ViewState = 'LIST' | 'DASHBOARD' | 'PROTOCOL' | 'CALENDAR' | 'DATA_HUB' | 'PROFILE';
+export type ViewState = 'LIST' | 'DASHBOARD' | 'PROTOCOL' | 'CALENDAR' | 'DATA_HUB' | 'PROFILE' | 'TIMELINE';
 export type Language = 'fr' | 'en';
+
+export interface TimelineAction {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+  status: 'TODO' | 'IN_PROGRESS' | 'DONE';
+  color?: string;
+}
+
+export interface TimelineEvent {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  status: 'TODO' | 'IN_PROGRESS' | 'DONE';
+  description: string;
+  actions?: TimelineAction[];
+}
 
 export interface AppState {
   subjects: Subject[];

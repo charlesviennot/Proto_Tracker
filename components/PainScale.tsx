@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Check } from 'lucide-react';
 
 interface PainScaleProps {
   value: number;
@@ -7,53 +8,107 @@ interface PainScaleProps {
 }
 
 export const PainScale: React.FC<PainScaleProps> = ({ value, onChange, label }) => {
-  const getPainColor = (num: number, active: boolean) => {
-    const baseClasses = "w-10 h-10 sm:w-12 sm:h-12 rounded-xl font-bold text-sm sm:text-lg transition-all flex items-center justify-center cursor-pointer shrink-0";
-    
-    const colorMap: Record<number, { active: string, inactive: string }> = {
-      0: { active: 'bg-green-500 text-white shadow-lg scale-110 z-10 ring-2 ring-offset-2 ring-green-500', inactive: 'bg-green-500/20 text-green-700 hover:bg-green-500/40' },
-      1: { active: 'bg-green-400 text-white shadow-lg scale-110 z-10 ring-2 ring-offset-2 ring-green-400', inactive: 'bg-green-400/20 text-green-700 hover:bg-green-400/40' },
-      2: { active: 'bg-lime-400 text-white shadow-lg scale-110 z-10 ring-2 ring-offset-2 ring-lime-400', inactive: 'bg-lime-400/20 text-lime-700 hover:bg-lime-400/40' },
-      3: { active: 'bg-yellow-300 text-yellow-900 shadow-lg scale-110 z-10 ring-2 ring-offset-2 ring-yellow-300', inactive: 'bg-yellow-300/20 text-yellow-700 hover:bg-yellow-300/40' },
-      4: { active: 'bg-yellow-400 text-yellow-900 shadow-lg scale-110 z-10 ring-2 ring-offset-2 ring-yellow-400', inactive: 'bg-yellow-400/20 text-yellow-700 hover:bg-yellow-400/40' },
-      5: { active: 'bg-amber-400 text-white shadow-lg scale-110 z-10 ring-2 ring-offset-2 ring-amber-400', inactive: 'bg-amber-400/20 text-amber-700 hover:bg-amber-400/40' },
-      6: { active: 'bg-orange-400 text-white shadow-lg scale-110 z-10 ring-2 ring-offset-2 ring-orange-400', inactive: 'bg-orange-400/20 text-orange-700 hover:bg-orange-400/40' },
-      7: { active: 'bg-orange-500 text-white shadow-lg scale-110 z-10 ring-2 ring-offset-2 ring-orange-500', inactive: 'bg-orange-500/20 text-orange-700 hover:bg-orange-500/40' },
-      8: { active: 'bg-red-400 text-white shadow-lg scale-110 z-10 ring-2 ring-offset-2 ring-red-400', inactive: 'bg-red-400/20 text-red-700 hover:bg-red-400/40' },
-      9: { active: 'bg-red-500 text-white shadow-lg scale-110 z-10 ring-2 ring-offset-2 ring-red-500', inactive: 'bg-red-500/20 text-red-700 hover:bg-red-500/40' },
-      10: { active: 'bg-red-600 text-white shadow-lg scale-110 z-10 ring-2 ring-offset-2 ring-red-600', inactive: 'bg-red-600/20 text-red-700 hover:bg-red-600/40' },
-    };
-  
-    return `${baseClasses} ${active ? colorMap[num].active : colorMap[num].inactive}`;
+  // Internal value from 0 to 100 (representing the 100mm scale)
+  const [internalValue, setInternalValue] = useState(value * 10 || 0);
+  const [hasChanged, setHasChanged] = useState(false);
+  const [isValidated, setIsValidated] = useState(true);
+
+  useEffect(() => {
+    setInternalValue(value * 10 || 0);
+    setHasChanged(false);
+    setIsValidated(true);
+  }, [value]);
+
+  const handleValidate = () => {
+    onChange(internalValue / 10);
+    setHasChanged(false);
+    setIsValidated(true);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInternalValue(parseInt(e.target.value));
+    setHasChanged(true);
+    setIsValidated(false);
   };
 
   return (
     <div className="w-full">
       {label && <label className="block text-xs font-bold text-gray-400 uppercase mb-3">{label}</label>}
-      <div className="bg-white p-4 sm:p-6 rounded-3xl border border-gray-100 shadow-sm">
-        <div className="flex justify-between text-[10px] sm:text-xs font-bold text-gray-400 mb-4 px-1 uppercase tracking-wider">
-          <span>0 - Aucune</span>
-          <span>10 - Insupportable</span>
-        </div>
+      <div className={`bg-white p-6 rounded-3xl border transition-colors ${hasChanged ? 'border-amber-300 shadow-md' : 'border-gray-100 shadow-sm'}`}>
         
-        <div className="flex flex-wrap justify-center gap-1 sm:gap-2">
-          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-            <button
-              key={num}
-              onClick={() => onChange(num)}
-              className={getPainColor(num, value === num)}
-              style={{ minWidth: '2.5rem' }}
-              type="button"
+        <div className="relative pt-2 pb-6">
+          <div className="flex justify-between text-sm font-bold text-gray-600 mb-8 px-1">
+            <span className="flex items-center gap-2">😄 0 - Aucune douleur</span>
+            <span className="flex items-center gap-2">10 - Insupportable 😭</span>
+          </div>
+          
+          {/* The 100mm scale representation */}
+          <div className="relative w-full h-8 flex items-center">
+            {/* Track background */}
+            <div className="absolute w-full h-4 rounded-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-500 shadow-inner" />
+            
+            {/* Ruler ticks */}
+            <div className="absolute w-full h-full flex justify-between px-0 pointer-events-none">
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(tick => (
+                <div key={tick} className="h-full flex flex-col justify-center items-center relative">
+                  <div className="w-0.5 h-6 bg-white/60 absolute"></div>
+                </div>
+              ))}
+            </div>
+
+            <input 
+              type="range" 
+              min="0" 
+              max="100" 
+              value={internalValue}
+              onChange={handleChange}
+              className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer z-10"
+            />
+            
+            {/* Custom thumb */}
+            <div 
+              className="absolute w-10 h-10 bg-white border-4 border-gray-800 rounded-full shadow-lg pointer-events-none transition-transform duration-75 flex items-center justify-center"
+              style={{ left: `calc(${internalValue}% - 20px)` }}
             >
-              {num}
-            </button>
-          ))}
+              <div className="w-3 h-3 bg-gray-800 rounded-full" />
+            </div>
+          </div>
+          
+          {/* Tick labels */}
+          <div className="flex justify-between px-1 mt-6">
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(tick => (
+              <div key={tick} className="flex flex-col items-center w-4">
+                <span className="text-sm text-gray-400 font-bold">{tick}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        
-        <div className="flex justify-between text-2xl sm:text-3xl mt-5 px-2 opacity-80">
-          <span title="Aucune douleur">😄</span>
-          <span title="Douleur modérée">😐</span>
-          <span title="Douleur insupportable">😭</span>
+
+        <div className="flex items-center justify-between mt-4 pt-6 border-t border-gray-100">
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Mesure (mm)</span>
+            <div className="text-4xl font-bold text-gray-800">
+              {internalValue} <span className="text-xl text-gray-400 font-medium">/ 100</span>
+            </div>
+            <div className="text-sm font-bold text-medical-blue mt-1">
+              Score EVA : {(internalValue / 10).toFixed(1)} / 10
+            </div>
+          </div>
+          
+          <button
+            onClick={handleValidate}
+            disabled={!hasChanged}
+            className={`flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-lg transition-all ${
+              hasChanged 
+                ? 'bg-medical-blue text-white shadow-lg shadow-blue-500/30 hover:bg-blue-600 hover:scale-105 active:scale-95' 
+                : isValidated 
+                  ? 'bg-green-100 text-green-600'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            <Check className="w-6 h-6" />
+            {isValidated && !hasChanged ? 'Validé' : 'Valider'}
+          </button>
         </div>
       </div>
     </div>

@@ -24,6 +24,8 @@ export interface ClinicalMetrics {
   hrvSdnn: number; // ms
   cmj: number; // cm
   mvic: number; // Maximum Voluntary Isometric Contraction (kg or N)
+  skinTemperature?: number; // °C
+  thighCircumference?: number; // cm
 }
 
 export interface Day0Data {
@@ -97,6 +99,7 @@ export interface ScreeningData {
 
 export interface FollowUpData {
   painResolvedDays: number | null; // Days until pain completely disappeared
+  t72h?: ClinicalMetrics; // 72h post-exercise metrics
   notes: string;
 }
 

@@ -102,6 +102,8 @@ export default function App() {
           }
           if (!s.followUp) {
             s.followUp = { ...INITIAL_FOLLOW_UP };
+          } else if (!s.followUp.t72h) {
+            s.followUp.t72h = { ...INITIAL_FOLLOW_UP.t72h };
           }
           return s;
         });

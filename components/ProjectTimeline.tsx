@@ -18,7 +18,10 @@ import {
   isSameMonth, 
   isToday,
   isSameDay,
-  parseISO
+  parseISO,
+  differenceInDays,
+  addDays,
+  formatISO
 } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 
@@ -115,6 +118,10 @@ export const ProjectTimeline: React.FC<Props> = ({ language }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [phaseFilter, setPhaseFilter] = useState<string>('ALL');
+  const [hoveredAction, setHoveredAction] = useState<{action: any, event: TimelineEvent, x: number, y: number} | null>(null);
+  const [draggedItem, setDraggedItem] = useState<{eventId: string, actionId: string, sourceDate: Date} | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -350,6 +357,54 @@ export const ProjectTimeline: React.FC<Props> = ({ language }) => {
     return months;
   };
 
+  const filteredEvents = events.filter(event => {
+    if (phaseFilter !== 'ALL' && event.id !== phaseFilter) return false;
+    return true;
+  }).map(event => {
+    if (statusFilter === 'ALL') return event;
+    return {
+      ...event,
+      actions: event.actions?.filter(a => a.status === statusFilter)
+    };
+  }).filter(event => event.actions ? event.actions.length > 0 : statusFilter === 'ALL' || event.status === statusFilter);
+
+  const handleDragStart = (e: React.DragEvent, eventId: string, actionId: string, date: Date) => {
+    setDraggedItem({ eventId, actionId, sourceDate: date });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetDate: Date) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+
+    const diff = differenceInDays(targetDate, draggedItem.sourceDate);
+    if (diff === 0) {
+      setDraggedItem(null);
+      return;
+    }
+
+    const newEvents = events.map(ev => {
+      if (ev.id === draggedItem.eventId) {
+        const newActions = ev.actions?.map(act => {
+          if (act.id === draggedItem.actionId) {
+            return {
+              ...act,
+              startDate: formatISO(addDays(parseISO(act.startDate), diff), { representation: 'date' }),
+              endDate: act.endDate ? formatISO(addDays(parseISO(act.endDate), diff), { representation: 'date' }) : undefined
+            };
+          }
+          return act;
+        });
+        return { ...ev, actions: newActions };
+      }
+      return ev;
+    });
+
+    setEvents(newEvents);
+    setDraggedItem(null);
+    await saveEvents(newEvents);
+  };
+
   const renderMonthCalendar = (monthDate: Date, showControls: boolean) => {
     const locale = language === 'fr' ? fr : enUS;
     const monthStart = startOfMonth(monthDate);
@@ -363,18 +418,38 @@ export const ProjectTimeline: React.FC<Props> = ({ language }) => {
 
     return (
       <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <h3 className="text-xl font-bold text-slate-800 capitalize">
             {format(monthStart, 'MMMM yyyy', { locale })}
           </h3>
           {showControls && !isExporting && (
-            <div className="flex bg-slate-100 rounded-xl p-1">
-              <button onClick={prevMonth} className="p-2 text-slate-500 hover:text-slate-800 hover:bg-white rounded-lg transition-all">
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button onClick={nextMonth} className="p-2 text-slate-500 hover:text-slate-800 hover:bg-white rounded-lg transition-all">
-                <ChevronRight className="w-5 h-5" />
-              </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <select 
+                value={phaseFilter} 
+                onChange={e => setPhaseFilter(e.target.value)}
+                className="text-sm px-3 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 font-medium"
+              >
+                <option value="ALL">Toutes les phases</option>
+                {events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
+              </select>
+              <select 
+                value={statusFilter} 
+                onChange={e => setStatusFilter(e.target.value)}
+                className="text-sm px-3 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 font-medium"
+              >
+                <option value="ALL">Tous les statuts</option>
+                <option value="TODO">À faire</option>
+                <option value="IN_PROGRESS">En cours</option>
+                <option value="DONE">Terminé</option>
+              </select>
+              <div className="flex bg-slate-100 rounded-xl p-1 ml-2">
+                <button onClick={prevMonth} className="p-2 text-slate-500 hover:text-slate-800 hover:bg-white rounded-lg transition-all">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button onClick={nextMonth} className="p-2 text-slate-500 hover:text-slate-800 hover:bg-white rounded-lg transition-all">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -393,10 +468,12 @@ export const ProjectTimeline: React.FC<Props> = ({ language }) => {
             const isCurrentMonth = isSameMonth(day, monthStart);
             const isTodayDate = isToday(day);
             
-            // Find actions that start or end on this day, or span across this day
-            const dayActions: { action: any, isStart: boolean, isEnd: boolean, isSpan: boolean }[] = [];
+            const isWeekend = day.getDay() === 0 || day.getDay() === 6;
             
-            events.forEach(event => {
+            // Find actions that start or end on this day, or span across this day
+            const dayActions: { action: any, event: any, isStart: boolean, isEnd: boolean, isSpan: boolean }[] = [];
+            
+            filteredEvents.forEach(event => {
               const items = event.actions && event.actions.length > 0 ? event.actions : [event];
               items.forEach(item => {
                 const start = parseISO(item.startDate);
@@ -410,6 +487,7 @@ export const ProjectTimeline: React.FC<Props> = ({ language }) => {
                 if (dayTime >= startTime && dayTime <= endTime) {
                   dayActions.push({
                     action: item,
+                    event: event,
                     isStart: dayTime === startTime,
                     isEnd: dayTime === endTime,
                     isSpan: dayTime > startTime && dayTime < endTime
@@ -421,19 +499,29 @@ export const ProjectTimeline: React.FC<Props> = ({ language }) => {
             return (
               <div 
                 key={day.toISOString()} 
+                onDragOver={e => {
+                  if (!isExporting) e.preventDefault();
+                }}
+                onDrop={e => {
+                  if (!isExporting) handleDrop(e, day);
+                }}
                 className={`min-h-[100px] sm:min-h-[120px] rounded-xl sm:rounded-2xl border p-1.5 sm:p-3 flex flex-col transition-all ${
-                  !isCurrentMonth ? 'opacity-40 bg-slate-50 border-slate-100' : 'bg-white border-slate-200'
-                } ${isTodayDate ? 'ring-2 ring-medical-blue border-transparent' : ''}`}
+                  !isCurrentMonth ? 'opacity-40 bg-slate-50 border-slate-100' : 
+                  isWeekend ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200'
+                } ${isTodayDate ? 'ring-2 ring-medical-blue border-transparent' : ''} ${
+                  draggedItem ? 'hover:bg-blue-50/50 hover:border-blue-200' : ''
+                }`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span className={`text-xs sm:text-sm font-bold w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full ${
-                    isTodayDate ? 'bg-medical-blue text-white' : 'text-slate-700'
+                    isTodayDate ? 'bg-medical-blue text-white' : 
+                    isWeekend ? 'text-slate-400' : 'text-slate-700'
                   }`}>
                     {format(day, 'd')}
                   </span>
                 </div>
                 <div className={`flex flex-col gap-1.5 flex-1 ${isExporting ? '' : 'overflow-y-auto custom-scrollbar'}`}>
-                  {dayActions.map(({ action, isStart, isEnd, isSpan }, idx) => {
+                  {dayActions.map(({ action, event, isStart, isEnd, isSpan }, idx) => {
                     let label = action.title;
                     if (isStart && !isEnd) label = `Début: ${action.title}`;
                     else if (isEnd && !isStart) label = `Fin: ${action.title}`;
@@ -445,14 +533,20 @@ export const ProjectTimeline: React.FC<Props> = ({ language }) => {
                     return (
                       <div 
                         key={`${action.id}-${idx}`}
-                        className={`text-[10px] sm:text-xs p-1.5 sm:p-2 rounded-lg font-bold truncate cursor-pointer hover:opacity-80 transition-opacity ${isSpan ? 'opacity-70' : ''}`}
+                        draggable={!isExporting}
+                        onDragStart={e => handleDragStart(e, event.id, action.id, day)}
+                        onMouseEnter={e => {
+                          if (isExporting || draggedItem) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setHoveredAction({ action, event, x: rect.left + rect.width / 2, y: rect.top });
+                        }}
+                        onMouseLeave={() => setHoveredAction(null)}
+                        className={`text-[10px] sm:text-xs p-1.5 sm:p-2 rounded-lg font-bold truncate cursor-grab active:cursor-grabbing hover:opacity-80 transition-opacity ${isSpan ? 'opacity-70' : ''}`}
                         style={{ 
                           backgroundColor: actionColor, 
                           color: textColor,
                           border: `1px solid ${actionColor}`
                         }}
-                        title={label}
-                        onClick={() => !isExporting && setViewMode('LIST')}
                       >
                         {label}
                       </div>
@@ -685,6 +779,34 @@ export const ProjectTimeline: React.FC<Props> = ({ language }) => {
           </div>
         )}
       </div>
+
+      {/* Tooltip / Popover */}
+      {hoveredAction && !isExporting && !draggedItem && (
+        <div 
+          className="fixed z-50 bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-64 pointer-events-none transform -translate-x-1/2 -translate-y-full mt-[-10px]"
+          style={{ top: hoveredAction.y, left: hoveredAction.x }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: hoveredAction.action.color || '#3b82f6' }} />
+            <span className="font-bold text-sm text-slate-800 truncate">{hoveredAction.action.title}</span>
+          </div>
+          <div className="text-xs text-slate-500 mb-2 font-medium">Phase: {hoveredAction.event.title}</div>
+          {hoveredAction.action.description && (
+            <p className="text-xs text-slate-600 mb-3 line-clamp-3">{hoveredAction.action.description}</p>
+          )}
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+            <span className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
+              <CalendarIcon className="w-3 h-3" />
+              {format(parseISO(hoveredAction.action.startDate), 'dd MMM', { locale: language === 'fr' ? fr : enUS })}
+              {hoveredAction.action.endDate && hoveredAction.action.endDate !== hoveredAction.action.startDate && 
+                ` - ${format(parseISO(hoveredAction.action.endDate), 'dd MMM', { locale: language === 'fr' ? fr : enUS })}`}
+            </span>
+            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${getStatusColor(hoveredAction.action.status)}`}>
+              {getStatusLabel(hoveredAction.action.status)}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       {alertMessage && (

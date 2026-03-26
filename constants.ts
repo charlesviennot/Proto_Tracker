@@ -1,13 +1,15 @@
 
 import { Subject, Day0Data, Day1Data, Day2Data, ClinicalMetrics, ScreeningData, FollowUpData, Demographics } from './types';
 
-const EMPTY_METRICS: ClinicalMetrics = {
+export const EMPTY_METRICS: ClinicalMetrics = {
   nirs: 0,
   thb: 0,
   hrvRmssd: 0,
   hrvSdnn: 0,
   cmj: 0,
-  mvic: 0
+  mvic: 0,
+  skinTemperature: 0,
+  thighCircumference: 0
 };
 
 export const INITIAL_DEMOGRAPHICS: Demographics = {
@@ -28,6 +30,7 @@ export const INITIAL_SCREENING: ScreeningData = {
 
 export const INITIAL_FOLLOW_UP: FollowUpData = {
   painResolvedDays: null,
+  t72h: { ...EMPTY_METRICS },
   notes: '',
 };
 

@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Subject, Day0Data, Day1Data, Day2Data, BiaData, ClinicalMetrics, ScreeningData, FollowUpData, Language, Demographics, TreatmentMoxyData } from '../types';
+import { EMPTY_METRICS } from '../constants';
 import { Button } from './Button';
 import { PainScale } from './PainScale';
 import { DropJumpTracker } from './DropJumpTracker';
@@ -522,6 +523,32 @@ const MetricsInputGroup: React.FC<MetricsInputProps> = ({ metrics, onChange, lab
                         onChange={e => onChange({ ...metrics, hrvSdnn: parseFloat(e.target.value) })}
                         className="w-full bg-slate-50 border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-bold focus:ring-2 focus:ring-medical-blue outline-none"
                         placeholder="0"
+                    />
+                </div>
+
+                {/* Skin Temperature */}
+                <div>
+                    <label className="text-[10px] font-bold text-gray-400 block mb-1" title="Température cutanée locale (Vaste Latéral)">Temp. Cutanée (°C)</label>
+                    <input 
+                        type="number" 
+                        value={metrics.skinTemperature || ''}
+                        onChange={e => onChange({ ...metrics, skinTemperature: parseFloat(e.target.value) })}
+                        className="w-full bg-slate-50 border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-bold focus:ring-2 focus:ring-medical-blue outline-none"
+                        placeholder="0.0"
+                        step="0.1"
+                    />
+                </div>
+
+                {/* Thigh Circumference */}
+                <div>
+                    <label className="text-[10px] font-bold text-gray-400 block mb-1" title="Circonférence de la cuisse (marqueur œdème)">Circ. Cuisse (cm)</label>
+                    <input 
+                        type="number" 
+                        value={metrics.thighCircumference || ''}
+                        onChange={e => onChange({ ...metrics, thighCircumference: parseFloat(e.target.value) })}
+                        className="w-full bg-slate-50 border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-bold focus:ring-2 focus:ring-medical-blue outline-none"
+                        placeholder="0.0"
+                        step="0.1"
                     />
                 </div>
             </div>
@@ -1094,9 +1121,9 @@ const CMJCalculatorModal = ({ onClose, onSave }: { onClose: () => void; onSave: 
 export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, onBack, onDelete, language }) => {
   const [activeTab, setActiveTab] = useState<'SCREENING' | 'DAY0' | 'DAY1' | 'DAY2' | 'FOLLOW_UP'>('SCREENING');
   const [showCMJModal, setShowCMJModal] = useState(false);
-  const [cmjTarget, setCmjTarget] = useState<{ day: 'day0' | 'day1' | 'day2', field: string } | null>(null);
+  const [cmjTarget, setCmjTarget] = useState<{ day: 'day0' | 'day1' | 'day2' | 'followUp', field: string } | null>(null);
 
-  const openCMJ = (day: 'day0' | 'day1' | 'day2', field: string) => {
+  const openCMJ = (day: 'day0' | 'day1' | 'day2' | 'followUp', field: string) => {
     setCmjTarget({ day, field });
     setShowCMJModal(true);
   };
@@ -1119,12 +1146,20 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
             [cmjTarget.field]: { ...((subject.day1 as any)[cmjTarget.field]), cmj: val } 
           }
         });
-      } else {
+      } else if (cmjTarget.day === 'day2') {
         onUpdate({
           ...subject,
           day2: { 
             ...subject.day2, 
             [cmjTarget.field]: { ...((subject.day2 as any)[cmjTarget.field]), cmj: val } 
+          }
+        });
+      } else if (cmjTarget.day === 'followUp') {
+        onUpdate({
+          ...subject,
+          followUp: {
+            ...subject.followUp,
+            [cmjTarget.field]: { ...((subject.followUp as any)[cmjTarget.field]), cmj: val }
           }
         });
       }
@@ -2019,6 +2054,17 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                         placeholder="Observations supplémentaires, commentaires du participant..."
                       />
                    </div>
+                </div>
+
+                <div className="mt-8 bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                    <label className="block text-sm font-bold text-gray-700 mb-4">Métriques Physiologiques (72h Post-Exo)</label>
+                    <MetricsInputGroup 
+                        label="72h Post-Exo (T72h)"
+                        metrics={subject.followUp.t72h || EMPTY_METRICS}
+                        onChange={(m) => updateFollowUp({ t72h: m })}
+                        onMeasureCMJ={() => openCMJ('followUp', 't72h')}
+                        language={language}
+                    />
                 </div>
              </section>
           </div>

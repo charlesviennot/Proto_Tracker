@@ -39,15 +39,23 @@ export interface Day0Data {
   dropJumps: DropJumpSession;
   rpePost: number; // 0-10
   t1: ClinicalMetrics; // Post-Exercise
+  evaPre?: number;
+  evaPost?: number;
+  sleepPre?: number;
+  sleepPost?: number;
 }
 
 export interface Day1Data {
   completed: boolean;
   date: string;
   time?: string;
-  evaPain: number; // 0-10
-  sleepQuality: number; // 1-10
+  evaPain: number; // 0-10 (Legacy)
+  sleepQuality: number; // 1-10 (Legacy)
   t24h: ClinicalMetrics; // 24h follow-up
+  evaPre?: number;
+  evaPost?: number;
+  sleepPre?: number;
+  sleepPost?: number;
 }
 
 export interface TreatmentMoxyData {
@@ -73,9 +81,9 @@ export interface Day2Data {
   completed: boolean;
   date: string;
   time?: string;
-  sleepQuality: number; // 1-10
+  sleepQuality: number; // 1-10 (Legacy)
   urineDensity: number; // <= 1.025
-  painSquatPre: number; // 0-10
+  painSquatPre: number; // 0-10 (Legacy)
   t2: ClinicalMetrics; // T2 Pre-Session (Check Edema)
   biaPre: BiaData; // T2 Pre-Session (Check Edema)
   quadricepsStiffnessPre: number; // Distance talon-fesse in cm (T2)
@@ -86,6 +94,10 @@ export interface Day2Data {
   biaPost: BiaData; // T3 Post-Session (Check Drainage)
   quadricepsStiffnessPost: number; // Distance talon-fesse in cm (T3)
   painDelta: number; // Calculated or input
+  evaPre?: number;
+  evaPost?: number;
+  sleepPre?: number;
+  sleepPost?: number;
 }
 
 export interface ScreeningData {
@@ -101,6 +113,10 @@ export interface FollowUpData {
   painResolvedDays: number | null; // Days until pain completely disappeared
   t72h?: ClinicalMetrics; // 72h post-exercise metrics
   notes: string;
+  evaPre?: number;
+  evaPost?: number;
+  sleepPre?: number;
+  sleepPost?: number;
 }
 
 export interface Demographics {

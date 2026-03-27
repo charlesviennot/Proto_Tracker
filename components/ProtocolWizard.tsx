@@ -1118,6 +1118,53 @@ const CMJCalculatorModal = ({ onClose, onSave }: { onClose: () => void; onSave: 
   );
 };
 
+const DailyAssessments = ({ data, updateData }: { data: any, updateData: (data: any) => void }) => (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-50 p-6 rounded-3xl border border-slate-200 mb-8">
+    <div>
+      <h4 className="font-bold text-gray-700 mb-4">Avant Session</h4>
+      <div className="mb-6">
+        <PainScale 
+          label="Douleur EVA (Avant)" 
+          value={data.evaPre || 0} 
+          onChange={v => updateData({ evaPre: v })} 
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-gray-400 uppercase mb-4">Sommeil (Avant)</label>
+        <input 
+          type="range" 
+          min="0" max="10" 
+          value={data.sleepPre || 0} 
+          onChange={e => updateData({ sleepPre: parseInt(e.target.value) })} 
+          className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-medical-blue mb-2" 
+        />
+        <div className="text-center font-bold text-xl">{data.sleepPre || 0}</div>
+      </div>
+    </div>
+    <div>
+      <h4 className="font-bold text-gray-700 mb-4">Après Session</h4>
+      <div className="mb-6">
+        <PainScale 
+          label="Douleur EVA (Après)" 
+          value={data.evaPost || 0} 
+          onChange={v => updateData({ evaPost: v })} 
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-gray-400 uppercase mb-4">Sommeil (Après)</label>
+        <input 
+          type="range" 
+          min="0" max="10" 
+          value={data.sleepPost || 0} 
+          onChange={e => updateData({ sleepPost: parseInt(e.target.value) })} 
+          className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-medical-blue mb-2" 
+        />
+        <div className="text-center font-bold text-xl">{data.sleepPost || 0}</div>
+      </div>
+    </div>
+  </div>
+);
+
 export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, onBack, onDelete, language }) => {
   const [activeTab, setActiveTab] = useState<'SCREENING' | 'DAY0' | 'DAY1' | 'DAY2' | 'FOLLOW_UP'>('SCREENING');
   const [showCMJModal, setShowCMJModal] = useState(false);
@@ -1435,6 +1482,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
         {/* Day 0 Content */}
         {activeTab === 'DAY0' && (
           <div className="p-8 md:p-12 space-y-12 animate-in zoom-in-95 duration-300">
+             <DailyAssessments data={subject.day0} updateData={updateDay0} />
              {/* Section 1: Pre-requisites */}
              <section>
                 <div className="flex items-center gap-3 mb-6">
@@ -1625,26 +1673,8 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                      </div>
                      
                      <div className="mb-8">
-                       <PainScale 
-                         label="Douleur EVA (0-10)"
-                         value={subject.day1.evaPain} 
-                         onChange={val => updateDay1({ evaPain: val })} 
-                       />
+                       <DailyAssessments data={subject.day1} updateData={updateDay1} />
                      </div>
-
-                      <label className="block text-xs font-bold text-gray-400 uppercase mb-4">Qualité du sommeil (0-10)</label>
-                      <input 
-                            type="range" 
-                            min="0" max="10" 
-                            value={subject.day1.sleepQuality || 0}
-                            onChange={e => updateDay1({ sleepQuality: parseInt(e.target.value) })}
-                            className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-medical-blue mb-6"
-                      />
-                      <div className="flex justify-center">
-                         <div className="w-24 h-24 rounded-full bg-white border-4 border-medical-blue flex items-center justify-center shadow-lg">
-                            <span className="text-4xl font-bold text-medical-text">{subject.day1.sleepQuality || 0}</span>
-                         </div>
-                      </div>
                   </div>
 
                   <Button 
@@ -1666,6 +1696,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
         {/* Day 2 Content */}
         {activeTab === 'DAY2' && (
            <div className="p-8 md:p-12 space-y-12 animate-in zoom-in-95 duration-300">
+               <DailyAssessments data={subject.day2} updateData={updateDay2} />
                {/* Pre-Session */}
                <section>
                 <div className="flex items-center gap-3 mb-6">
@@ -1694,19 +1725,6 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                        </div>
 
                        <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Sommeil (0-10)</label>
-                          <div className="flex items-center justify-between">
-                             <input 
-                               type="number" max="10"
-                               value={subject.day2.sleepQuality || 0}
-                               onChange={e => updateDay2({ sleepQuality: parseInt(e.target.value) })}
-                               className="w-16 bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:ring-2 focus:ring-purple-500 outline-none"
-                             />
-                             <span className="text-xs font-bold text-gray-400">/ 10</span>
-                          </div>
-                       </div>
-
-                       <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
                           <label className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Densité Urine</label>
                           <input 
                              type="number" step="0.001"
@@ -1717,12 +1735,6 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                           />
                           {subject.day2.urineDensity > 1.025 && <span className="text-[10px] text-red-500 font-bold mt-1 block">Hydratation insuffisante</span>}
                        </div>
-
-                       <PainScale 
-                         label="Douleur Squat"
-                         value={subject.day2.painSquatPre} 
-                         onChange={val => updateDay2({ painSquatPre: val })} 
-                       />
                    </div>
 
                    <div className="lg:col-span-6 bg-slate-50 p-5 rounded-3xl border border-slate-200">
@@ -2016,6 +2028,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
         {/* Follow-up Content */}
         {activeTab === 'FOLLOW_UP' && (
           <div className="p-8 md:p-12 space-y-12 animate-in zoom-in-95 duration-300">
+             <DailyAssessments data={subject.followUp} updateData={updateFollowUp} />
              <section>
                 <div className="flex items-center gap-3 mb-6">
                    <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">

@@ -62,9 +62,9 @@ const flattenSubjectData = (s: Subject) => ({
     'J0 BIA R': s.day0.biaInitial.r,
     'J0 BIA Xc': s.day0.biaInitial.xc,
     'J0 BIA PhA': s.day0.biaInitial.pha,
-    'J0 CMJ Avant Effort (T0)': s.day0.t0?.cmj,
+    'J0 CMJ Avant Effort': s.day0.t0?.cmj,
     'J0 RPE Post': s.day0.rpePost,
-    'J0 CMJ Après Effort (T1)': s.day0.t1?.cmj,
+    'J0 CMJ Après Effort': s.day0.t1?.cmj,
     'J0 SmO2 Fatigue': s.day0.t1?.nirs,
     'J0 THb Fatigue': s.day0.t1?.thb,
     'J0 Température Cutanée Fatigue': s.day0.t1?.skinTemperature,
@@ -74,10 +74,18 @@ const flattenSubjectData = (s: Subject) => ({
     // J1 (Day 1)
     'J1 Date': s.day1.date,
     'J1 EVA Pain (Legacy)': s.day1.evaPain,
+    'J1 Score Sommeil': s.day1.sleepQuality,
     'J1 EVA Avant': s.day1.evaPre,
     'J1 EVA Après': s.day1.evaPost,
     'J1 Score Sommeil Avant': s.day1.sleepPre,
     'J1 Score Sommeil Après': s.day1.sleepPost,
+    'J1 HRV RMSSD 24h': s.day1.t24h?.hrvRmssd,
+    'J1 HRV SDNN 24h': s.day1.t24h?.hrvSdnn,
+    'J1 SmO2 24h': s.day1.t24h?.nirs,
+    'J1 THb 24h': s.day1.t24h?.thb,
+    'J1 Température Cutanée 24h': s.day1.t24h?.skinTemperature,
+    'J1 Circonférence Cuisse 24h': s.day1.t24h?.thighCircumference,
+    'J1 CMJ 24h': s.day1.t24h?.cmj,
 
     // J2 (Day 2)
     'J2 Date': s.day2.date,
@@ -97,7 +105,7 @@ const flattenSubjectData = (s: Subject) => ({
     'J2 BIA Pre R (T2)': s.day2.biaPre.r,
     'J2 BIA Pre Xc (T2)': s.day2.biaPre.xc,
     'J2 BIA Pre PhA (T2)': s.day2.biaPre.pha,
-    'J2 CMJ Avant Séance (T2)': s.day2.t2?.cmj,
+    'J2 CMJ Avant Séance': s.day2.t2?.cmj,
     
     // Treatment 40-min
     'J2 Traitement THb Base (0-2m)': s.day2.treatmentMoxy?.avgStartTHb,
@@ -122,20 +130,20 @@ const flattenSubjectData = (s: Subject) => ({
     'J2 BIA Post PhA (T3)': s.day2.biaPost.pha,
     'J2 HRV RMSSD Final': s.day2.t3?.hrvRmssd,
     'J2 HRV SDNN Final': s.day2.t3?.hrvSdnn,
-    'J2 CMJ Après Séance (T3)': s.day2.t3?.cmj,
+    'J2 CMJ Après Séance': s.day2.t3?.cmj,
 
-    // J3 (Follow-up 72h)
-    'J3 Douleur Disparue (Jours)': s.followUp?.painResolvedDays ?? 'N/A',
-    'J3 EVA Avant': s.followUp?.evaPre,
-    'J3 EVA Après': s.followUp?.evaPost,
-    'J3 Score Sommeil Avant': s.followUp?.sleepPre,
-    'J3 Score Sommeil Après': s.followUp?.sleepPost,
-    'J3 SmO2 72h': s.followUp?.t72h?.nirs,
-    'J3 THb 72h': s.followUp?.t72h?.thb,
-    'J3 Température Cutanée 72h': s.followUp?.t72h?.skinTemperature,
-    'J3 Circonférence Cuisse 72h': s.followUp?.t72h?.thighCircumference,
-    'J3 HRV RMSSD 72h': s.followUp?.t72h?.hrvRmssd,
-    'J3 HRV SDNN 72h': s.followUp?.t72h?.hrvSdnn,
-    'J3 CMJ 72h': s.followUp?.t72h?.cmj,
-    'J3 Notes': s.followUp?.notes || ''
+    // Jour 3 (Follow-up 72h)
+    'Jour 3 Douleur Disparue (Jours)': s.followUp?.painResolvedDays ?? 'N/A',
+    'Jour 3 EVA Avant': s.followUp?.evaPre,
+    'Jour 3 EVA Après': s.followUp?.evaPost,
+    'Jour 3 Score Sommeil Avant': s.followUp?.sleepPre,
+    'Jour 3 Score Sommeil Après': s.followUp?.sleepPost,
+    'Jour 3 SmO2 72h': s.followUp?.t72h?.nirs,
+    'Jour 3 THb 72h': s.followUp?.t72h?.thb,
+    'Jour 3 Température Cutanée 72h': s.followUp?.t72h?.skinTemperature,
+    'Jour 3 Circonférence Cuisse 72h': s.followUp?.t72h?.thighCircumference,
+    'Jour 3 HRV RMSSD 72h': s.followUp?.t72h?.hrvRmssd,
+    'Jour 3 HRV SDNN 72h': s.followUp?.t72h?.hrvSdnn,
+    'Jour 3 CMJ 72h': s.followUp?.t72h?.cmj,
+    'Jour 3 Notes': s.followUp?.notes || ''
 });

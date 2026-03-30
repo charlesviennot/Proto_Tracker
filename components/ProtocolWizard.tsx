@@ -413,7 +413,7 @@ const MetricsInputGroup: React.FC<MetricsInputProps> = ({ metrics, onChange, lab
                 </span>
             </div>
             
-            <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
                 {/* NIRS */}
                 <div>
                     <div className="flex justify-between items-center mb-1">
@@ -820,7 +820,7 @@ const CMJCalculatorModal = ({ onClose, onSave }: { onClose: () => void; onSave: 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-      <div className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col md:flex-row h-full md:h-[85vh]" onClick={e => e.stopPropagation()}>
+      <div className="bg-white w-full max-w-[95vw] xl:max-w-[1400px] rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col md:flex-row h-full md:h-[90vh]" onClick={e => e.stopPropagation()}>
          
          {/* Left Side: Jump History & Summary */}
          <div className="w-full md:w-1/3 bg-slate-50 border-r border-slate-200 p-6 flex flex-col shrink-0">
@@ -1260,7 +1260,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-gray-500">
             <ChevronLeft className="w-6 h-6" />
@@ -1277,7 +1277,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
         </div>
         
         {/* Navigation Tabs */}
-        <div className="bg-white p-1 rounded-2xl border border-gray-100 shadow-sm flex">
+        <div className="bg-white p-1 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap gap-1">
           {tabs.map(tab => (
             <button
               key={tab.id}
@@ -1319,7 +1319,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                    <h3 className="text-xl font-bold text-medical-text">Données Démographiques</h3>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-4xl mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full mb-12">
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                     <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Âge (ans)</label>
                     <input 
@@ -1373,7 +1373,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                    <h3 className="text-xl font-bold text-medical-text">Critères d'Inclusion & Exclusion</h3>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 space-y-4">
                       <label className="flex items-center gap-3 cursor-pointer group">
                         <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${subject.screening.ageValid ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300 bg-white'}`}>
@@ -1493,7 +1493,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                    <div className="lg:col-span-3 bg-slate-50 p-6 rounded-3xl border border-slate-200">
                       <label className="block text-xs font-bold text-gray-400 uppercase mb-3">Date & Heure</label>
-                      <div className="flex gap-2 mb-4">
+                      <div className="flex flex-col xl:flex-row gap-2 mb-4">
                         <input 
                           type="date" 
                           value={subject.day0.date}
@@ -1647,7 +1647,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
         {/* Day 1 Content */}
         {activeTab === 'DAY1' && (
            <div className="p-8 md:p-12 space-y-12 animate-in zoom-in-95 duration-300 flex flex-col items-center justify-center min-h-[500px]">
-              <div className="max-w-md w-full text-center space-y-8">
+              <div className="max-w-4xl w-full text-center space-y-8">
                   <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 transform rotate-3">
                      <Calendar className="w-10 h-10" />
                   </div>
@@ -1657,7 +1657,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
 
                   <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200 shadow-sm text-left">
                      <label className="block text-xs font-bold text-gray-400 uppercase mb-4">Date et Heure du relevé</label>
-                     <div className="flex gap-2 mb-8">
+                     <div className="flex flex-col sm:flex-row gap-2 mb-8">
                        <input 
                           type="date" 
                           value={subject.day1.date}
@@ -1674,6 +1674,16 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                      
                      <div className="mb-8">
                        <DailyAssessments data={subject.day1} updateData={updateDay1} />
+                     </div>
+
+                     <div className="mb-8">
+                        <MetricsInputGroup 
+                          label="Mesures Cliniques 24h"
+                          metrics={subject.day1.t24h || {}}
+                          onChange={updates => updateDay1({ t24h: { ...subject.day1.t24h, ...updates } })}
+                          onMeasureCMJ={() => openCMJ('day1', 't24h')}
+                          language={language}
+                        />
                      </div>
                   </div>
 
@@ -1815,7 +1825,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
 
                      {/* Moxy 40-min Upload */}
                      <div className="relative z-10 mt-8 pt-8 border-t border-slate-700">
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
                            <div>
                               <div className="flex items-center gap-2 mb-1">
                                  <h4 className="text-sm font-bold text-slate-300">Enregistrement Moxy (40 min)</h4>
@@ -1860,7 +1870,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                            </label>
                         </div>
 
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                            <div>
                               <div className="flex items-center gap-2 mb-1">
                                  <h4 className="text-sm font-bold text-slate-300">Enregistrement Elite HRV / Polar (40 min)</h4>
@@ -2037,7 +2047,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                    <h3 className="text-xl font-bold text-medical-text">Suivi Post-Protocole</h3>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200">
                       <label className="block text-sm font-bold text-gray-700 mb-2">Disparition complète des douleurs</label>
                       <p className="text-xs text-gray-500 mb-4">Combien de jours après le début du protocole (J0) les douleurs ont-elles complètement disparu ?</p>

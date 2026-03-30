@@ -62,7 +62,7 @@ export const TimelineView: React.FC = () => {
   ];
 
   return (
-    <div className="p-8 max-w-5xl mx-auto animate-in fade-in duration-500">
+    <div className="p-8 max-w-[1400px] mx-auto animate-in fade-in duration-500">
       <div className="mb-10">
         <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
           <Calendar className="w-8 h-8 text-medical-blue" />

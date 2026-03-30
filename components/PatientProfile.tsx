@@ -50,7 +50,7 @@ export const PatientProfile: React.FC<Props> = ({ subject, onBack, language, bli
   ].filter(d => d.r > 0 || d.xc > 0 || d.pha > 0);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500 print:p-0 print:max-w-none">
+    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500 print:p-0 print:max-w-none">
       
       {/* Header - Hidden in print, replaced by print header */}
       <div className="flex items-center justify-between mb-8 print:hidden">

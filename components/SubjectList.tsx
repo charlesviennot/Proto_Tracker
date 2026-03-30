@@ -203,7 +203,7 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onViewProfile
                   <span className="w-6 h-6 rounded-full bg-medical-blue/10 text-medical-blue flex items-center justify-center text-xs">J1</span>
                   Suivi 24h
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-wide ml-1">Date</label>
                     <input type="date" value={editScheduleData.day1Date} onChange={e => setEditScheduleData(prev => ({ ...prev, day1Date: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-medical-blue outline-none transition-all" />
@@ -221,7 +221,7 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onViewProfile
                   <span className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-xs">J2</span>
                   Suivi 48h & Récup
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-wide ml-1">Date</label>
                     <input type="date" value={editScheduleData.day2Date} onChange={e => setEditScheduleData(prev => ({ ...prev, day2Date: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
@@ -378,7 +378,7 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onViewProfile
       </div>
 
       {/* List */}
-      <div className="grid gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {filtered.map(subject => (
           <div
             key={subject.id} 

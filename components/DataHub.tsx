@@ -50,7 +50,7 @@ export const DataHub: React.FC<Props> = ({ subjects, language }) => {
   }, [subjects]);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="space-y-8 animate-in fade-in duration-500 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b border-gray-100/50">
         <div>
           <h2 className="text-4xl font-bold text-medical-text tracking-tight mb-2 flex items-center gap-3">

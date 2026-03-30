@@ -485,7 +485,7 @@ export default function App() {
       
       {/* Premium Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] print:hidden">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-24">
             {/* Brand Logo Area */}
             <div className="flex items-center cursor-pointer group" onClick={() => setState(p => ({...p, view: 'LIST', currentSubjectId: null}))}>
@@ -573,7 +573,7 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-32">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-32">
         {renderContent()}
       </main>
 

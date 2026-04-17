@@ -15,12 +15,23 @@ export const DropJumpTracker: React.FC<Props> = ({ data, onUpdate, onComplete })
   const [timeLeft, setTimeLeft] = useState(0);
   const [isActive, setIsActive] = useState(false);
   // Track total rest time for the current set to calculate progress percentage correctly
-  const [totalRestTimeForSet, setTotalRestTimeForSet] = useState(60);
+  const [totalRestTimeForSet, setTotalRestTimeForSet] = useState(120);
 
   useEffect(() => {
+    // Auto-migrate old 10x10 protocol to 5x20 protocol if not completed
+    if (!data.completed && data.sets.length === 10) {
+      const newSets = Array(5).fill({ reps: 20, restTime: 120, completed: false });
+      onUpdate({ ...data, sets: newSets, totalJumps: 0, completed: false });
+      setCurrentSetIndex(0);
+      setIsResting(false);
+      setIsActive(false);
+      setTimeLeft(0);
+      return;
+    }
+
     const firstIncomplete = data.sets.findIndex(s => !s.completed);
     if (firstIncomplete !== -1) setCurrentSetIndex(firstIncomplete);
-  }, []);
+  }, [data.sets.length, data.completed]);
 
   useEffect(() => {
     let interval: any = null;

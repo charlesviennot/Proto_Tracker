@@ -45,7 +45,7 @@ export const INITIAL_DAY0: Day0Data = {
   dropJumps: {
     totalJumps: 0,
     completed: false,
-    sets: Array(10).fill({ reps: 10, restTime: 60, completed: false }) // Default 10x10
+    sets: Array(5).fill({ reps: 20, restTime: 120, completed: false }) // Updated to 5x20 with 2min rest
   },
   rpePost: 0,
   t1: { ...EMPTY_METRICS },

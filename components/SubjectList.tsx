@@ -383,36 +383,35 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onViewProfile
           <div
             key={subject.id} 
             onClick={() => onSelect(subject.id)}
-            className="w-full text-left bg-white p-5 md:p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-gray-100/50 flex flex-col md:flex-row items-center justify-between gap-4 group relative overflow-hidden"
+            className="w-full text-left bg-white p-5 rounded-[2rem] shadow-sm hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-gray-100/50 flex flex-col gap-4 group relative overflow-hidden"
           >
             {/* Left Color Indicator */}
             <div className={`absolute left-0 top-0 bottom-0 w-2 ${subject.group === 'AUDIOVITALITY' ? 'bg-medical-bronze' : 'bg-medical-blue'}`} />
 
-            <div className="flex items-center w-full md:w-auto gap-5 pl-3 min-w-0">
-               <div className={`w-16 h-16 rounded-[1.2rem] flex items-center justify-center shrink-0 transition-colors ${subject.group === 'AUDIOVITALITY' ? 'bg-[#F9F5EB] text-[#C5A059]' : 'bg-blue-50 text-blue-600'}`}>
-                 <User className="w-7 h-7" />
+            <div className="flex items-start w-full gap-4 pl-3">
+               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${subject.group === 'AUDIOVITALITY' ? 'bg-[#F9F5EB] text-[#C5A059]' : 'bg-blue-50 text-blue-600'}`}>
+                 <User className="w-6 h-6" />
                </div>
-               <div className="min-w-0">
-                 <h4 className="text-xl font-bold text-medical-text group-hover:text-medical-bronze transition-colors truncate">
+               <div className="min-w-0 flex-1">
+                 <h4 className="text-xl font-bold text-medical-text group-hover:text-medical-bronze transition-colors break-words leading-tight">
                    {blindMode ? 'Sujet Anonymisé' : subject.name}
                  </h4>
-                 <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mt-1">
-                   <span className="font-mono font-medium text-gray-400">{subject.code}</span>
-                   <span className="w-1 h-1 bg-gray-300 rounded-full shrink-0"></span>
-                   <span className={`shrink-0 ${subject.group === 'AUDIOVITALITY' ? 'text-[#9A7B3E] font-medium' : 'text-blue-600 font-medium'}`}>
-                     {subject.group === 'AUDIOVITALITY' ? 'Groupe Traité' : 'Contrôle'}
-                   </span>
+                 <div className="flex flex-col gap-1.5 mt-2 text-sm text-gray-500">
+                   <div className="flex flex-wrap items-center gap-2">
+                     <span className="font-mono font-medium text-gray-400">{subject.code}</span>
+                     <span className="w-1 h-1 bg-gray-300 rounded-full shrink-0"></span>
+                     <span className={`shrink-0 ${subject.group === 'AUDIOVITALITY' ? 'text-[#9A7B3E] font-medium' : 'text-blue-600 font-medium'}`}>
+                       {subject.group === 'AUDIOVITALITY' ? 'Groupe Traité' : 'Contrôle'}
+                     </span>
+                   </div>
                    {(() => {
                      const nextAppt = getNextAppointment(subject);
                      if (nextAppt) {
                        return (
-                         <>
-                           <span className="w-1 h-1 bg-gray-300 rounded-full shrink-0"></span>
-                           <span className="flex items-center gap-1 text-gray-500 shrink-0">
-                             <Calendar className="w-3.5 h-3.5" />
-                             {nextAppt.label} : {new Date(nextAppt.date).toLocaleDateString('fr-FR')} {nextAppt.time ? `à ${nextAppt.time}` : ''}
-                           </span>
-                         </>
+                         <div className="flex items-center gap-1.5 text-gray-400 font-medium">
+                           <Calendar className="w-3.5 h-3.5 shrink-0" />
+                           <span className="truncate">{nextAppt.label} : {new Date(nextAppt.date).toLocaleDateString('fr-FR')} {nextAppt.time ? `à ${nextAppt.time}` : ''}</span>
+                         </div>
                        );
                      }
                      return null;
@@ -421,10 +420,10 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onViewProfile
                </div>
             </div>
             
-            <div className="flex items-center justify-between w-full md:w-auto gap-2 md:gap-4 pl-3 md:pl-0 shrink-0">
+            <div className="flex items-center justify-between w-full pl-3 mt-1 pt-4 border-t border-gray-50">
                {getStatusBadge(subject)}
                
-               <div className="flex items-center flex-wrap gap-1 md:gap-2">
+               <div className="flex items-center flex-wrap gap-1 sm:gap-2">
                  {/* View Profile Button */}
                  <button 
                     type="button"

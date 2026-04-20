@@ -139,26 +139,92 @@ const parseMoxyCSV = (csvText: string): { smo2: number | null, thb: number | nul
     }
 };
 
-// --- MOXY CSV PARSER (40-min Treatment) ---
-const parseTreatmentMoxyCSV = (csvText: string): TreatmentMoxyData | null => {
-    try {
-        const lines = csvText.split('\n');
-        const dataPoints: { time: number, smo2: number, thb: number }[] = [];
-        const separator = csvText.includes(';') ? ';' : ',';
+// --- UNIFIED NIRS CSV PARSER (Moxy & Train.RED) ---
+const parseNirsTime = (timeStr: string): number => {
+    if (!timeStr) return NaN;
+    const timePart = timeStr.trim().split(' ').pop() || '';
+    if (timePart.includes(':')) {
+        const parts = timePart.split(':').map(p => parseFloat(p.replace(',', '.')));
+        if (parts.length === 3) return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+        if (parts.length === 2) return (parts[0] * 60) + parts[1];
+    }
+    return parseFloat(timePart.replace(',', '.'));
+};
 
+const extractNirsDataPoints = (csvText: string): { time: number, smo2: number, thb: number }[] => {
+    const lines = csvText.split('\n');
+    const separator = csvText.includes(';') ? ';' : ',';
+    const dataPoints: { time: number, smo2: number, thb: number }[] = [];
+    
+    // Train.RED Detection
+    const isTrainRed = csvText.includes('Train.Red Export') || csvText.includes('Timestamp (seconds passed)');
+
+    if (isTrainRed) {
+        let timeIdx = -1;
+        let smo2Indices: number[] = [];
+        let thbIndices: number[] = [];
+        let dataStarted = false;
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            const columns = line.split(separator).map(c => c.trim().replace(/^"|"$/g, ''));
+            
+            if (!dataStarted) {
+                if (columns.includes('Timestamp (seconds passed)')) {
+                    timeIdx = columns.indexOf('Timestamp (seconds passed)');
+                    smo2Indices = columns.map((c, idx) => c === 'SmO2' ? idx : -1).filter(idx => idx !== -1);
+                    thbIndices = columns.map((c, idx) => c === 'THb unfiltered' ? idx : -1).filter(idx => idx !== -1);
+                    if (thbIndices.length === 0) thbIndices = columns.map((c, idx) => c.toLowerCase().includes('thb') ? idx : -1).filter(idx => idx !== -1);
+                    dataStarted = true;
+                }
+                continue;
+            }
+
+            if (dataStarted && timeIdx !== -1 && smo2Indices.length > 0) {
+                const tStr = columns[timeIdx];
+                if (!tStr) continue;
+
+                const tVal = parseFloat(tStr.replace(',', '.'));
+                
+                let smo2Sum = 0, smo2Count = 0;
+                smo2Indices.forEach(idx => {
+                    const valStr = columns[idx];
+                    if (valStr) {
+                        const val = parseFloat(valStr.replace(',', '.'));
+                        if (!isNaN(val)) { smo2Sum += val; smo2Count++; }
+                    }
+                });
+                const sVal = smo2Count > 0 ? smo2Sum / smo2Count : NaN;
+
+                let thbSum = 0, thbCount = 0;
+                thbIndices.forEach(idx => {
+                    const valStr = columns[idx];
+                    if (valStr) {
+                        const val = parseFloat(valStr.replace(',', '.'));
+                        if (!isNaN(val)) { thbSum += val; thbCount++; }
+                    }
+                });
+                const thbVal = thbCount > 0 ? thbSum / thbCount : 0; // Default to 0 for Train.RED if missing
+
+                if (!isNaN(tVal) && !isNaN(sVal)) {
+                    dataPoints.push({ time: tVal, smo2: sVal, thb: thbVal });
+                }
+            }
+        }
+    } else {
+        // Moxy Logic
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
             const columns = line.split(separator);
             if (columns.length >= 3) {
-                // Handle both 3-column (Time, SmO2, THb) and 4-column (Record, Time, SmO2, THb) formats
                 let timeIdx = columns.length >= 4 ? 1 : 0;
                 let smo2Idx = columns.length >= 4 ? 2 : 1;
                 let thbIdx = columns.length >= 4 ? 3 : 2;
 
-                let timeVal = parseFloat(columns[timeIdx]?.replace(',', '.'));
+                let timeVal = parseNirsTime(columns[timeIdx]);
                 if (isNaN(timeVal) && timeIdx === 1) {
-                    timeVal = parseFloat(columns[0]?.replace(',', '.'));
+                    timeVal = parseNirsTime(columns[0]);
                     if (!isNaN(timeVal)) {
                         smo2Idx = 1;
                         thbIdx = 2;
@@ -173,10 +239,22 @@ const parseTreatmentMoxyCSV = (csvText: string): TreatmentMoxyData | null => {
                 }
             }
         }
+    }
+
+    if (dataPoints.length > 0) {
+        dataPoints.sort((a, b) => a.time - b.time);
+        const firstTime = dataPoints[0].time;
+        dataPoints.forEach(dp => dp.time -= firstTime);
+    }
+    
+    return dataPoints;
+};
+
+const parseTreatmentMoxyCSV = (csvText: string): TreatmentMoxyData | null => {
+    try {
+        const dataPoints = extractNirsDataPoints(csvText);
 
         if (dataPoints.length > 0) {
-            // Sort by time just in case
-            dataPoints.sort((a, b) => a.time - b.time);
             
             const maxTime = dataPoints[dataPoints.length - 1].time;
             
@@ -223,38 +301,15 @@ const parseTreatmentMoxyCSV = (csvText: string): TreatmentMoxyData | null => {
 // --- TIME SERIES PARSERS ---
 const parseMoxyTimeSeries = (csvText: string) => {
     try {
-        const lines = csvText.split('\n');
-        const buckets: Record<number, { smo2: number[], thb: number[] }> = {};
-        const separator = csvText.includes(';') ? ';' : ',';
-        
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            const columns = line.split(separator);
-            if (columns.length >= 3) {
-                let timeIdx = columns.length >= 4 ? 1 : 0;
-                let smo2Idx = columns.length >= 4 ? 2 : 1;
-                let thbIdx = columns.length >= 4 ? 3 : 2;
+        const rawPoints = extractNirsDataPoints(csvText);
+        if (rawPoints.length === 0) return [];
 
-                let timeVal = parseFloat(columns[timeIdx]?.replace(',', '.'));
-                if (isNaN(timeVal) && timeIdx === 1) {
-                    timeVal = parseFloat(columns[0]?.replace(',', '.'));
-                    if (!isNaN(timeVal)) {
-                        smo2Idx = 1;
-                        thbIdx = 2;
-                    }
-                }
-                
-                const smo2Val = parseFloat(columns[smo2Idx]?.replace(',', '.'));
-                const thbVal = parseFloat(columns[thbIdx]?.replace(',', '.'));
-                
-                if (!isNaN(smo2Val) && !isNaN(thbVal) && !isNaN(timeVal)) {
-                    const bucket = Math.floor(timeVal / 30) * 30; // 30s buckets
-                    if (!buckets[bucket]) buckets[bucket] = { smo2: [], thb: [] };
-                    buckets[bucket].smo2.push(smo2Val);
-                    buckets[bucket].thb.push(thbVal);
-                }
-            }
+        const buckets: Record<number, { smo2: number[], thb: number[] }> = {};
+        for (const data of rawPoints) {
+            const bucket = Math.floor(data.time / 30) * 30; // 30s buckets
+            if (!buckets[bucket]) buckets[bucket] = { smo2: [], thb: [] };
+            buckets[bucket].smo2.push(data.smo2);
+            buckets[bucket].thb.push(data.thb);
         }
         
         const timeSeries: { time: number, smo2: number, thb: number }[] = [];

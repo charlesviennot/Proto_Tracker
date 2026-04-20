@@ -437,15 +437,10 @@ export default function App() {
     return (
       <div className="min-h-screen bg-medical-bg flex flex-col items-center justify-center p-4">
         <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center">
-          <div className="flex justify-center mb-6">
-            <div className="bg-gradient-to-br from-medical-text to-slate-700 text-white p-4 rounded-2xl shadow-lg">
-              <Stethoscope className="w-10 h-10" />
-            </div>
+          <div className="flex flex-col items-center justify-center mb-8 gap-4">
+            <img src="/AVI_Logo_Black.png" alt="AudioVitality Logo" className="h-16 md:h-20 object-contain" referrerPolicy="no-referrer" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-medical-text leading-tight mb-2">
-            AudioVitality<span className="text-medical-bronze">.</span>
-          </h1>
-          <p className="text-gray-500 mb-8">Veuillez vous connecter pour accéder à l'application clinique.</p>
+          <p className="text-gray-500 mb-8 mt-4 text-center">Veuillez vous connecter pour accéder à l'application clinique.</p>
           
           <button
             onClick={() => signInWithPopup(auth, googleProvider)}
@@ -489,13 +484,9 @@ export default function App() {
           <div className="flex justify-between items-center h-24">
             {/* Brand Logo Area */}
             <div className="flex items-center cursor-pointer group" onClick={() => setState(p => ({...p, view: 'LIST', currentSubjectId: null}))}>
-              <div className="bg-gradient-to-br from-medical-text to-slate-700 text-white p-3 rounded-2xl mr-4 shadow-lg shadow-slate-900/10 group-hover:scale-105 transition-transform duration-300">
-                <Stethoscope className="w-7 h-7" />
-              </div>
-              <div className="flex flex-col">
-                 <h1 className="text-2xl font-bold tracking-tight text-medical-text leading-tight">
-                   AudioVitality<span className="text-medical-bronze">.</span>
-                 </h1>
+              <img src="/WMiniLogo.png" alt="Logo" className="w-10 h-10 mr-4 group-hover:scale-105 transition-transform duration-300 object-contain" referrerPolicy="no-referrer" />
+              <div className="flex flex-col items-start justify-center">
+                 <img src="/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-7 object-contain mb-1" referrerPolicy="no-referrer" />
                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">{t('appTitle', state.language || 'fr')}</p>
               </div>
             </div>

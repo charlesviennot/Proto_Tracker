@@ -388,18 +388,18 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onViewProfile
             {/* Left Color Indicator */}
             <div className={`absolute left-0 top-0 bottom-0 w-2 ${subject.group === 'AUDIOVITALITY' ? 'bg-medical-bronze' : 'bg-medical-blue'}`} />
 
-            <div className="flex items-center w-full md:w-auto gap-5 pl-3">
+            <div className="flex items-center w-full md:w-auto gap-5 pl-3 min-w-0">
                <div className={`w-16 h-16 rounded-[1.2rem] flex items-center justify-center shrink-0 transition-colors ${subject.group === 'AUDIOVITALITY' ? 'bg-[#F9F5EB] text-[#C5A059]' : 'bg-blue-50 text-blue-600'}`}>
                  <User className="w-7 h-7" />
                </div>
-               <div>
-                 <h4 className="text-xl font-bold text-medical-text group-hover:text-medical-bronze transition-colors">
+               <div className="min-w-0">
+                 <h4 className="text-xl font-bold text-medical-text group-hover:text-medical-bronze transition-colors truncate">
                    {blindMode ? 'Sujet Anonymisé' : subject.name}
                  </h4>
-                 <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                 <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mt-1">
                    <span className="font-mono font-medium text-gray-400">{subject.code}</span>
-                   <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                   <span className={`${subject.group === 'AUDIOVITALITY' ? 'text-[#9A7B3E] font-medium' : 'text-blue-600 font-medium'}`}>
+                   <span className="w-1 h-1 bg-gray-300 rounded-full shrink-0"></span>
+                   <span className={`shrink-0 ${subject.group === 'AUDIOVITALITY' ? 'text-[#9A7B3E] font-medium' : 'text-blue-600 font-medium'}`}>
                      {subject.group === 'AUDIOVITALITY' ? 'Groupe Traité' : 'Contrôle'}
                    </span>
                    {(() => {
@@ -407,8 +407,8 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onViewProfile
                      if (nextAppt) {
                        return (
                          <>
-                           <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                           <span className="flex items-center gap-1 text-gray-500">
+                           <span className="w-1 h-1 bg-gray-300 rounded-full shrink-0"></span>
+                           <span className="flex items-center gap-1 text-gray-500 shrink-0">
                              <Calendar className="w-3.5 h-3.5" />
                              {nextAppt.label} : {new Date(nextAppt.date).toLocaleDateString('fr-FR')} {nextAppt.time ? `à ${nextAppt.time}` : ''}
                            </span>
@@ -421,10 +421,10 @@ export const SubjectList: React.FC<Props> = ({ subjects, onSelect, onViewProfile
                </div>
             </div>
             
-            <div className="flex items-center justify-between w-full md:w-auto gap-4 pl-3 md:pl-0">
+            <div className="flex items-center justify-between w-full md:w-auto gap-2 md:gap-4 pl-3 md:pl-0 shrink-0">
                {getStatusBadge(subject)}
                
-               <div className="flex items-center gap-2">
+               <div className="flex items-center flex-wrap gap-1 md:gap-2">
                  {/* View Profile Button */}
                  <button 
                     type="button"

@@ -12,9 +12,13 @@ export interface DropJumpSession {
 }
 
 export interface BiaData {
-  r: number; // Resistance (Ohms)
-  xc: number; // Reactance (Ohms)
+  r?: number; // Resistance (Ohms)
+  xc?: number; // Reactance (Ohms)
   pha: number; // Phase Angle (Degrees)
+  re?: number; // Resistance Extra-cellular (Ohms)
+  ri?: number; // Resistance Intra-cellular (Ohms)
+  cm?: number; // Capacitance membranaire (nF)
+  fc?: number; // Fréquence caractéristique (kHz)
 }
 
 export interface ClinicalMetrics {
@@ -112,6 +116,8 @@ export interface ScreeningData {
 export interface FollowUpData {
   painResolvedDays: number | null; // Days until pain completely disappeared
   t72h?: ClinicalMetrics; // 72h post-exercise metrics
+  biaT4?: BiaData; // 72h bio-impedance
+  quadricepsStiffnessT4?: number; // 72h stiffness
   notes: string;
   evaPre?: number;
   evaPost?: number;
@@ -141,28 +147,8 @@ export interface Subject {
   followUp: FollowUpData;
 }
 
-export type ViewState = 'LIST' | 'DASHBOARD' | 'PROTOCOL' | 'CALENDAR' | 'DATA_HUB' | 'PROFILE' | 'TIMELINE';
+export type ViewState = 'LIST' | 'DASHBOARD' | 'PROTOCOL' | 'CALENDAR' | 'DATA_HUB' | 'PROFILE';
 export type Language = 'fr' | 'en';
-
-export interface TimelineAction {
-  id: string;
-  title: string;
-  startDate: string;
-  endDate: string;
-  description: string;
-  status: 'TODO' | 'IN_PROGRESS' | 'DONE';
-  color?: string;
-}
-
-export interface TimelineEvent {
-  id: string;
-  title: string;
-  startDate: string;
-  endDate: string;
-  status: 'TODO' | 'IN_PROGRESS' | 'DONE';
-  description: string;
-  actions?: TimelineAction[];
-}
 
 export interface AppState {
   subjects: Subject[];

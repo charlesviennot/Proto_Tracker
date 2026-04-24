@@ -31,6 +31,8 @@ export const INITIAL_SCREENING: ScreeningData = {
 export const INITIAL_FOLLOW_UP: FollowUpData = {
   painResolvedDays: null,
   t72h: { ...EMPTY_METRICS },
+  biaT4: { r: 0, xc: 0, pha: 0 },
+  quadricepsStiffnessT4: 0,
   notes: '',
 };
 

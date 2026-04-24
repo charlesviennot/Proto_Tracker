@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { Subject, Day0Data, Day1Data, Day2Data, BiaData, ClinicalMetrics, ScreeningData, FollowUpData, Language, Demographics, TreatmentMoxyData } from '../types';
 import { EMPTY_METRICS } from '../constants';
 import { Button } from './Button';
@@ -617,92 +618,183 @@ interface BiaInputProps {
     data: BiaData;
     onChange: (data: BiaData) => void;
     label: string;
-    prevR?: number;
+    prevRe?: number;
     interpretation?: 'EDEMA' | 'DRAINAGE'; // Context for visual hints
 }
 
-const BiaInputGroup: React.FC<BiaInputProps> = ({ data, onChange, label, prevR, interpretation }) => {
-    // Helper to calculate diff visual
-    const getDiff = (current: number, prev: number | undefined, inverse: boolean = false) => {
-        if (!prev || !current) return null;
-        const diff = current - prev;
-        const color = inverse 
-            ? (diff < 0 ? 'text-red-500' : 'text-green-500') 
-            : (diff > 0 ? 'text-green-500' : 'text-red-500');
-        
-        return (
-            <span className={`text-[10px] font-bold ml-1 ${color}`}>
-                {diff > 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(0)}
-            </span>
-        );
+const BiaInputGroup: React.FC<BiaInputProps> = ({ data, onChange, label, prevRe, interpretation }) => {
+    
+    // File upload logic
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const workbook = XLSX.read(bstr, { type: 'binary' });
+                const wsname = workbook.SheetNames[0];
+                const ws = workbook.Sheets[wsname];
+                const fileData: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+                let parsedData: Partial<BiaData> = {};
+
+                // Find header row
+                let headerRowIdx = -1;
+                for (let i = 0; i < fileData.length; i++) {
+                    if (fileData[i] && fileData[i][0] && typeof fileData[i][0] === 'string' && fileData[i][0].toLowerCase().includes('f(khz)')) {
+                        headerRowIdx = i;
+                        break;
+                    }
+                }
+
+                if (headerRowIdx !== -1) {
+                    const headers = fileData[headerRowIdx].map((h: any) => h?.toString().toLowerCase() || '');
+                    
+                    const freqIdx = headers.findIndex(h => h.includes('f(khz)') || h === 'f');
+                    const reIdx = headers.findIndex(h => h.includes('re(')); // Re(Ω)
+                    const riIdx = headers.findIndex(h => h.includes('ri(') && !h.includes('re/ri'));
+                    const cIdx = headers.findIndex(h => h === 'c(nf)' || h.includes('c('));
+                    const foIdx = headers.findIndex(h => h.includes('fo(') || h === 'fo');
+                    const aIdx = headers.findIndex(h => h.includes('a(°)') || h === 'a' || h.includes('pha'));
+                    const rIdx = headers.findIndex(h => h.includes('r(ω)') || h === 'r');
+                    const xIdx = headers.findIndex(h => h.includes('x(ω)') || h.includes('xc'));
+
+                    for (let i = headerRowIdx + 1; i < fileData.length; i++) {
+                        const row = fileData[i];
+                        if (!row || row.length === 0) continue;
+
+                        let f = parseFloat(row[freqIdx]?.toString().replace(',', '.') || '0');
+                        
+                        // Parse Cole-Cole parameters if present (usually available on first or specific rows)
+                        if (!parsedData.re && reIdx !== -1 && row[reIdx]) parsedData.re = parseFloat(row[reIdx].toString().replace(',', '.'));
+                        if (!parsedData.ri && riIdx !== -1 && row[riIdx]) parsedData.ri = parseFloat(row[riIdx].toString().replace(',', '.'));
+                        if (!parsedData.cm && cIdx !== -1 && row[cIdx]) parsedData.cm = parseFloat(row[cIdx].toString().replace(',', '.'));
+                        if (!parsedData.fc && foIdx !== -1 && row[foIdx]) parsedData.fc = parseFloat(row[foIdx].toString().replace(',', '.'));
+
+                        // Catch exact 50kHz params
+                        if (Math.abs(f - 50) < 0.1 || Math.abs(f - 50000) < 1) {
+                            if (aIdx !== -1 && row[aIdx]) parsedData.pha = parseFloat(row[aIdx].toString().replace(',', '.'));
+                            if (rIdx !== -1 && row[rIdx]) parsedData.r = parseFloat(row[rIdx].toString().replace(',', '.'));
+                            if (xIdx !== -1 && row[xIdx]) parsedData.xc = parseFloat(row[xIdx].toString().replace(',', '.'));
+                        }
+                    }
+                }
+
+                onChange({ 
+                    ...data, 
+                    re: parsedData.re ?? data.re, 
+                    ri: parsedData.ri ?? data.ri, 
+                    cm: parsedData.cm ?? data.cm, 
+                    fc: parsedData.fc ?? data.fc,
+                    pha: parsedData.pha ?? data.pha,
+                    r: parsedData.r ?? data.r,
+                    xc: parsedData.xc ?? data.xc
+                });
+            } catch (err) {
+                console.error("Erreur de parsing:", err);
+            }
+        };
+        reader.readAsBinaryString(file);
     };
 
     return (
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex justify-between items-center mb-3">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative group overflow-hidden">
+            {/* Background subtle effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            
+            <div className="flex justify-between items-center mb-4 relative z-10">
                 <span className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1">
-                    <Zap className="w-3 h-3 text-yellow-500" /> {label}
+                    <Activity className="w-3 h-3 text-indigo-500" /> {label} (BIS)
                 </span>
-                <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">50 kHz</span>
+                
+                <label className="cursor-pointer bg-white border border-indigo-100 hover:border-indigo-300 hover:bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md text-[10px] font-bold shadow-sm transition-colors flex items-center gap-1">
+                    <FileUp className="w-3 h-3" /> Importer XLSX
+                    <input type="file" accept=".csv, .xlsx, .xls" onChange={handleFileUpload} className="hidden" />
+                </label>
             </div>
             
-            <div className="grid grid-cols-3 gap-2">
-                {/* Resistance */}
-                <div className="relative">
-                    <label className="text-[10px] font-bold text-gray-400 block mb-1">R (Ohms)</label>
-                    <input 
-                        type="number" 
-                        value={data.r || ''}
-                        onChange={e => onChange({ ...data, r: parseFloat(e.target.value) })}
-                        className={`w-full bg-slate-50 border rounded-lg px-2 py-1.5 text-sm font-bold focus:ring-2 focus:ring-yellow-400 outline-none ${
-                             interpretation === 'EDEMA' && prevR && data.r && data.r < prevR ? 'border-green-300 bg-green-50' : // Drop is expected (Edema)
-                             interpretation === 'DRAINAGE' && prevR && data.r && data.r > prevR ? 'border-green-300 bg-green-50' : // Rise is expected (Drainage)
-                             'border-gray-200'
-                        }`}
-                    />
-                    {prevR && data.r ? (
-                        <div className="absolute top-0 right-0">
-                             {interpretation === 'EDEMA' 
-                                ? getDiff(data.r, prevR, true) // We want drop (Red if Up, Green if Down) -> Logic above handles color manually actually
-                                : getDiff(data.r, prevR, false)
-                             }
-                        </div>
-                    ) : null}
+            <div className="grid grid-cols-4 gap-2 mb-3 relative z-10">
+                {/* Re - Primary Marker for local assessment instead of ECW */}
+                <div className="col-span-2 relative">
+                    <label className="text-[10px] font-bold text-indigo-600 block mb-1">Re (Ω) ★</label>
+                    <div className="relative">
+                        <input 
+                            type="number" step="0.1"
+                            value={data.re || ''}
+                            onChange={e => onChange({ ...data, re: parseFloat(e.target.value) })}
+                            className="w-full bg-indigo-50 border border-indigo-200 rounded-lg pl-2 pr-6 py-1.5 text-sm font-bold text-indigo-700 focus:ring-2 focus:ring-indigo-400 outline-none"
+                            placeholder="ex: 61.3"
+                        />
+                        {data.re && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-indigo-400 font-bold">Ω</span>}
+                    </div>
                 </div>
-
-                {/* Reactance */}
-                <div>
-                    <label className="text-[10px] font-bold text-gray-400 block mb-1">Xc (Ohms)</label>
-                    <input 
-                        type="number" 
-                        value={data.xc || ''}
-                        onChange={e => onChange({ ...data, xc: parseFloat(e.target.value) })}
-                        className="w-full bg-slate-50 border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-bold focus:ring-2 focus:ring-yellow-400 outline-none"
-                    />
+                {/* Phase Angle - Primary Marker */}
+                <div className="col-span-2 relative">
+                    <label className="text-[10px] font-bold text-indigo-600 block mb-1">PhA (°) @50kHz ★</label>
+                    <div className="relative">
+                        <input 
+                            type="number" step="0.01"
+                            value={data.pha || ''}
+                            onChange={e => onChange({ ...data, pha: parseFloat(e.target.value) })}
+                            className="w-full bg-indigo-50 border border-indigo-200 rounded-lg pl-2 pr-6 py-1.5 text-sm font-bold text-indigo-700 focus:ring-2 focus:ring-indigo-400 outline-none"
+                            placeholder="ex: 5.68"
+                        />
+                        {data.pha && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-indigo-400 font-bold">°</span>}
+                    </div>
                 </div>
+            </div>
 
-                {/* Phase Angle */}
+            <div className="grid grid-cols-4 gap-2 relative z-10">
                 <div>
-                    <label className="text-[10px] font-bold text-gray-400 block mb-1">PhA (°)</label>
+                    <label className="text-[9px] font-bold text-gray-400 block mb-1 truncate" title="Résistance (50kHz)">R (Ω)</label>
                     <input 
                         type="number" step="0.1"
-                        value={data.pha || ''}
-                        onChange={e => onChange({ ...data, pha: parseFloat(e.target.value) })}
-                        className="w-full bg-slate-50 border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-bold focus:ring-2 focus:ring-yellow-400 outline-none"
+                        value={data.r || ''}
+                        onChange={e => onChange({ ...data, r: parseFloat(e.target.value) })}
+                        className="w-full bg-slate-50 border border-gray-200 rounded-md px-1.5 py-1 text-xs font-bold focus:ring-2 focus:ring-slate-400 outline-none"
+                    />
+                </div>
+                <div>
+                    <label className="text-[9px] font-bold text-gray-400 block mb-1 truncate" title="Résistance intra-cellulaire">Ri (Ω)</label>
+                    <input 
+                        type="number" step="0.1"
+                        value={data.ri || ''}
+                        onChange={e => onChange({ ...data, ri: parseFloat(e.target.value) })}
+                        className="w-full bg-slate-50 border border-gray-200 rounded-md px-1.5 py-1 text-xs font-bold focus:ring-2 focus:ring-slate-400 outline-none"
+                    />
+                </div>
+                <div>
+                    <label className="text-[9px] font-bold text-gray-400 block mb-1 truncate" title="Capacitance membranaire">Cm (nF)</label>
+                    <input 
+                        type="number" step="0.01"
+                        value={data.cm || ''}
+                        onChange={e => onChange({ ...data, cm: parseFloat(e.target.value) })}
+                        className="w-full bg-slate-50 border border-gray-200 rounded-md px-1.5 py-1 text-xs font-bold focus:ring-2 focus:ring-slate-400 outline-none"
+                    />
+                </div>
+                <div>
+                    <label className="text-[9px] font-bold text-gray-400 block mb-1 truncate" title="Fréquence caractéristique">fc (kHz)</label>
+                    <input 
+                        type="number" step="0.1"
+                        value={data.fc || ''}
+                        onChange={e => onChange({ ...data, fc: parseFloat(e.target.value) })}
+                        className="w-full bg-slate-50 border border-gray-200 rounded-md px-1.5 py-1 text-xs font-bold focus:ring-2 focus:ring-slate-400 outline-none"
                     />
                 </div>
             </div>
             
             {/* Interpretation Hint */}
-            {interpretation && prevR && data.r && (
-                <div className="mt-2 text-[10px] text-center font-bold">
+            {interpretation && Boolean(prevRe) && Boolean(data.re) && (
+                <div className="mt-3 bg-gray-50 rounded-lg p-2 text-[10px] text-center font-bold relative z-10 border border-gray-100">
                     {interpretation === 'EDEMA' && (
-                         data.r < prevR ? <span className="text-green-600 flex items-center justify-center gap-1"><Check className="w-3 h-3"/> Œdème confirmé (R baissé)</span> 
-                         : <span className="text-gray-400">Pas de baisse significative de R</span>
+                         data.re! < prevRe! ? <span className="text-rose-600 flex items-center justify-center gap-1"><TrendingDown className="w-3 h-3"/> Œdème confirmé (Re : {data.re} {'<'} {prevRe})</span> 
+                         : <span className="text-gray-400 flex items-center justify-center gap-1">Pas de chute significative de Re (Œdème non visible)</span>
                     )}
                     {interpretation === 'DRAINAGE' && (
-                         data.r > prevR ? <span className="text-green-600 flex items-center justify-center gap-1"><Check className="w-3 h-3"/> Drainage réussi (R remonté)</span> 
-                         : <span className="text-gray-400">Pas de hausse significative de R</span>
+                         data.re! > prevRe! ? <span className="text-emerald-600 flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3"/> Drainage réussi (Re : {data.re} {'>'} {prevRe})</span> 
+                         : <span className="text-gray-400 flex items-center justify-center gap-1">Pas de hausse significative de Re (Pas de drainage net)</span>
                     )}
                 </div>
             )}
@@ -1829,7 +1921,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                             label="BIA T2" 
                             data={subject.day2.biaPre} 
                             onChange={(bia) => updateDay2({ biaPre: bia })}
-                            prevR={subject.day0.biaInitial.r}
+                            prevRe={subject.day0.biaInitial.re || subject.day0.biaInitial.r}
                             interpretation="EDEMA"
                          />
                       </div>
@@ -2037,7 +2129,7 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                             label="BIA T3" 
                             data={subject.day2.biaPost} 
                             onChange={(bia) => updateDay2({ biaPost: bia })}
-                            prevR={subject.day2.biaPre.r}
+                            prevRe={subject.day2.biaPre.re || subject.day2.biaPre.r}
                             interpretation="DRAINAGE"
                          />
                       </div>
@@ -2143,6 +2235,31 @@ export const ProtocolWizard: React.FC<Props> = ({ subject, onUpdate, fastTrack, 
                         onMeasureCMJ={() => openCMJ('followUp', 't72h')}
                         language={language}
                     />
+
+                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col justify-center">
+                          <div className="flex justify-between items-center mb-4">
+                             <span className="text-xs text-gray-500 font-bold flex items-center gap-1"><MoveDiagonal className="w-3 h-3"/> Raideur</span>
+                             <div className="flex items-center">
+                                 <input 
+                                 type="number"
+                                 value={subject.followUp.quadricepsStiffnessT4 || ''}
+                                 onChange={e => updateFollowUp({ quadricepsStiffnessT4: parseFloat(e.target.value) })}
+                                 className="w-16 bg-white border border-gray-200 rounded-lg px-2 py-1 text-sm text-right font-bold"
+                                 />
+                                 <span className="text-[10px] text-gray-400 ml-1">cm</span>
+                             </div>
+                          </div>
+                          
+                          <BiaInputGroup 
+                              label="Bio-Impédance (T4)"
+                              data={subject.followUp.biaT4 || {pha: 0}}
+                              onChange={(bia) => updateFollowUp({ biaT4: bia })}
+                              prevRe={subject.day2.biaPost.re || subject.day2.biaPost.r}
+                              interpretation="DRAINAGE"
+                          />
+                        </div>
+                    </div>
                 </div>
              </section>
           </div>

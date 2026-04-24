@@ -22,6 +22,7 @@ export const PatientProfile: React.FC<Props> = ({ subject, onBack, language, bli
     { phase: 'J0 Fatigue', value: subject.day0.t1?.cmj || 0 },
     { phase: 'J2 Pre', value: subject.day2.t2?.cmj || 0 },
     { phase: 'J2 Post', value: subject.day2.t3?.cmj || 0 },
+    { phase: 'J3 FollowUp', value: subject.followUp?.t72h?.cmj || 0 },
   ].filter(d => d.value > 0);
 
   const moxyData = [
@@ -29,25 +30,29 @@ export const PatientProfile: React.FC<Props> = ({ subject, onBack, language, bli
     { phase: 'J0 Fatigue', smo2: subject.day0.t1?.nirs || 0, thb: subject.day0.t1?.thb || 0 },
     { phase: 'J2 Pre', smo2: subject.day2.t2?.nirs || 0, thb: subject.day2.t2?.thb || 0 },
     { phase: 'J2 Post', smo2: subject.day2.t3?.nirs || 0, thb: subject.day2.t3?.thb || 0 },
+    { phase: 'J3 FollowUp', smo2: subject.followUp?.t72h?.nirs || 0, thb: subject.followUp?.t72h?.thb || 0 },
   ].filter(d => d.smo2 > 0 || d.thb > 0);
 
   const hrvData = [
     { phase: 'J0 Base', rmssd: subject.day0.t0?.hrvRmssd || 0 },
     { phase: 'J2 Pre', rmssd: subject.day2.t2?.hrvRmssd || 0 },
     { phase: 'J2 Post', rmssd: subject.day2.t3?.hrvRmssd || 0 },
+    { phase: 'J3 FollowUp', rmssd: subject.followUp?.t72h?.hrvRmssd || 0 },
   ].filter(d => d.rmssd > 0);
 
   const stiffnessData = [
     { phase: 'J0 Base', distance: subject.day0.quadricepsStiffnessInitial || 0 },
     { phase: 'J2 Pre', distance: subject.day2.quadricepsStiffnessPre || 0 },
     { phase: 'J2 Post', distance: subject.day2.quadricepsStiffnessPost || 0 },
+    { phase: 'J3 FollowUp', distance: subject.followUp?.quadricepsStiffnessT4 || 0 },
   ].filter(d => d.distance > 0);
 
   const biaData = [
-    { phase: 'J0 Base', r: subject.day0.biaInitial.r || 0, xc: subject.day0.biaInitial.xc || 0, pha: subject.day0.biaInitial.pha || 0 },
-    { phase: 'J2 Pre', r: subject.day2.biaPre.r || 0, xc: subject.day2.biaPre.xc || 0, pha: subject.day2.biaPre.pha || 0 },
-    { phase: 'J2 Post', r: subject.day2.biaPost.r || 0, xc: subject.day2.biaPost.xc || 0, pha: subject.day2.biaPost.pha || 0 },
-  ].filter(d => d.r > 0 || d.xc > 0 || d.pha > 0);
+    { phase: 'J0 Base', re: subject.day0.biaInitial.re || subject.day0.biaInitial.r || 0, pha: subject.day0.biaInitial.pha || 0 },
+    { phase: 'J2 Pre', re: subject.day2.biaPre?.re || subject.day2.biaPre?.r || 0, pha: subject.day2.biaPre?.pha || 0 },
+    { phase: 'J2 Post', re: subject.day2.biaPost?.re || subject.day2.biaPost?.r || 0, pha: subject.day2.biaPost?.pha || 0 },
+    { phase: 'J3 FollowUp', re: subject.followUp?.biaT4?.re || subject.followUp?.biaT4?.r || 0, pha: subject.followUp?.biaT4?.pha || 0 },
+  ].filter(d => d.pha > 0 || d.re > 0);
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500 print:p-0 print:max-w-none">
@@ -208,6 +213,33 @@ export const PatientProfile: React.FC<Props> = ({ subject, onBack, language, bli
                 </BarChart>
               </ResponsiveContainer>
               <div className="text-center text-xs text-gray-400 mt-2">Note: Une distance plus faible indique une meilleure souplesse (axe inversé).</div>
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-400 bg-gray-50 rounded-xl">Données insuffisantes</div>
+          )}
+        </div>
+
+        {/* Bio-Impedance Evolution (BIS) */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 print:shadow-none print:border-gray-300 print:break-inside-avoid">
+          <h3 className="text-lg font-bold text-medical-text mb-6 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-indigo-500" />
+            Bio-Impédance (Re & PhA)
+          </h3>
+          {biaData.length > 0 ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={biaData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                  <XAxis dataKey="phase" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
+                  <YAxis yAxisId="left" reversed axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#0ea5e9' }} />
+                  <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6366f1' }} />
+                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                  <Line yAxisId="left" type="monotone" dataKey="re" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 4, fill: '#0ea5e9', strokeWidth: 2, stroke: '#fff' }} name="Re (Ω) [Inversé: Œdème↑]" isAnimationActive={false} />
+                  <Line yAxisId="right" type="monotone" dataKey="pha" stroke="#6366f1" strokeWidth={3} dot={{ r: 4, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} name="PhA (°)" isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="text-center text-xs text-gray-400 mt-2">Re évalue indirectement l'oedème (axe inversé, plus petit = plus d'eau), PhA évalue l'intégrité cellulaire.</div>
             </div>
           ) : (
             <div className="h-64 flex items-center justify-center text-gray-400 bg-gray-50 rounded-xl">Données insuffisantes</div>
